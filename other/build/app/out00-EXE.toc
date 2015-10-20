@@ -1,0 +1,9 @@
+('F:\\smartDIYs\\Laser\\Src\\SmartLaser\\other\\dist\\smartlaser.exe',
+ True,
+ False,
+ None,
+ None,
+ [],
+ None,
+ False,
+ 1442452265L)

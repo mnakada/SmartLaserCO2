@@ -34,10 +34,10 @@ function refresh_preview(reload_data, read_passes_widget) {
   DataHandler.draw(preview_canvas_obj, app_settings.to_canvas_scale);
   DataHandler.draw_bboxes(preview_canvas_obj, app_settings.to_canvas_scale);
   // var stats = GcodeReader.getStats();
-  // var length = stats.cuttingPathLength; 
+  // var length = stats.cuttingPathLength;
   // var duration = stats.estimatedTime;
   // $('#previe_stats').html("~" + duration.toFixed(1) + "min");
-  // $().uxmessage('notice', "Total cutting path is: " + (length/1000.0).toFixed(2) + 
+  // $().uxmessage('notice', "Total cutting path is: " + (length/1000.0).toFixed(2) +
   //               "m. Estimated Time: " + duration.toFixed(1) + "min");
   var total_length = DataHandler.getJobPathLength();
   if (total_length > 0) {
@@ -70,8 +70,8 @@ function populate_job_library() {
       $.get("/library/get/" + name, function(jobdata) {
         load_into_job_widget(name, jobdata);
       });
-      return false;
-    });   
+      return true;
+    });
   });
   // .success(function() { alert("second success"); })
   // .error(function() { alert("error"); })
@@ -79,7 +79,7 @@ function populate_job_library() {
 }
 
 var queue_num_index = 1;
-function save_and_add_to_job_queue(name, jobdata) { 
+function save_and_add_to_job_queue(name, jobdata) {
   if ((typeof(name) == 'undefined') || ($.trim(name) == '')) {
     var date = new Date();
     name = date.toDateString() +' - '+ queue_num_index
@@ -107,7 +107,7 @@ function add_to_job_queue(name) {
       num_non_starred++;
       if (num_non_starred > app_settings.max_num_queue_items-1) {
         remove_queue_item(li_item);
-      }          
+      }
     }
   });
   //// add list item to page
@@ -117,7 +117,7 @@ function add_to_job_queue(name) {
     star_class = 'icon-star';
   }
   $('#job_queue').prepend('<li><a href="#"><span>'+ name +'</span><span class="starwidget '+ star_class +' pull-right" title=" star to keep in queue"></span></a></li>')
-  $('span.starwidget').tooltip({delay:{ show: 1500, hide: 100}})  
+  $('span.starwidget').tooltip({delay:{ show: 1500, hide: 100}})
   //// action for loading gcode
   $('#job_queue li:first a').click(function(){
     var name = $(this).children('span:first').text();
@@ -127,13 +127,13 @@ function add_to_job_queue(name) {
     $.get("/queue/get/" + name, function(jobdata) {
       if (name.slice(-8) == '.starred') {
         name = name.slice(0,-8);
-      }      
+      }
       load_into_job_widget(name, jobdata);
     }).error(function() {
       $().uxmessage('error', "File not found: " + name);
     });
-    return false;   
-  });   
+    return false;
+  });
   //// action for star
   $('#job_queue li:first a span.starwidget').click(function() {
     if ($(this).hasClass('icon-star')) {
@@ -145,13 +145,13 @@ function add_to_job_queue(name) {
         if (data != "1") {
           // on failure revert ui
           $(this).removeClass('icon-star-empty');
-          $(this).addClass('icon-star');        
-        }      
+          $(this).addClass('icon-star');
+        }
       }).error(function() {
         // on failure revert ui
         $(this).removeClass('icon-star-empty');
-        $(this).addClass('icon-star');  
-      });       
+        $(this).addClass('icon-star');
+      });
     } else {
       //// star
       $(this).removeClass('icon-star-empty');
@@ -161,13 +161,13 @@ function add_to_job_queue(name) {
         if (data != "1") {
           // on failure revert ui
           $(this).removeClass('icon-star');
-          $(this).addClass('icon-star-empty');         
+          $(this).addClass('icon-star-empty');
         }
       }).error(function() {
         // on failure revert ui
         $(this).removeClass('icon-star');
-        $(this).addClass('icon-star-empty');  
-      });        
+        $(this).addClass('icon-star-empty');
+      });
     }
     return false;
   });
@@ -183,7 +183,7 @@ function remove_queue_item(li_item) {
     } else {
       $().uxmessage('error', "Failed to delete queue item: " + name);
     }
-  });  
+  });
 }
 
 function add_to_library_queue(jobdata, name) {
@@ -192,7 +192,7 @@ function add_to_library_queue(jobdata, name) {
     name = date.toDateString() +' - '+ queue_num_index
   }
   $('#job_library').prepend('<li><a href="#"><span>'+ name +'</span><i class="icon-star pull-right"></i><div style="display:none">'+ jobdata +'</div></a></li>')
-  
+
   $('#job_library li a').click(function(){
     load_into_job_widget($(this).text(), $(this).next().text())
   });
@@ -209,11 +209,8 @@ function add_to_library_queue(jobdata, name) {
 function addPasses(num) {
   var pass_num_offset = getNumPasses() + 1;
   var buttons = ''
-  var firstbtn = ''
-  var secondbtn = ''
   for (var color in DataHandler.getColorOrder()) {
-    firstbtn +='<button class="select_color btn btn-small active active-strong" style="margin:2px"><div style="width:10px; height:10px; background-color:'+color+'"><span style="display:none">'+color+'</span></div></button>'
-    secondbtn +='<button class="select_color btn btn-small" style="margin:2px"><div style="width:10px; height:10px; background-color:'+color+'"><span style="display:none">'+color+'</span></div></button>'
+    buttons +='<button class="select_color btn btn-small" style="margin:2px"><div style="width:10px; height:10px; background-color:'+color+'"><span style="display:none">'+color+'</span></div></button>'
   }
   for (var i=0; i<num; i++) {
     var passnum = pass_num_offset+i;
@@ -221,14 +218,8 @@ function addPasses(num) {
     if (passnum != 1) {
       margintop = 'margin-top:6px;'
     }
-    if (i == 0) {
-        buttons = firstbtn;
-    }
-    else {
-        buttons = secondbtn;
-    }
     var html = '<div class="row well" style="margin:0px; '+margintop+
-                  ' padding:4px; background-color:#eeeeee">' + 
+                  ' padding:4px; background-color:#eeeeee">' +
                 '<div class="form-inline" style="margin-bottom:0px">' +
                   '<label>Pass '+ passnum +': </label>' +
                   '<div class="input-prepend" style="margin-left:6px">' +
@@ -257,7 +248,7 @@ function addPasses(num) {
         $(this).removeClass('active-strong');
       } else {
         $(this).addClass('active');
-        $(this).addClass('active-strong');      
+        $(this).addClass('active-strong');
       }
       refresh_preview(true, true);
     });
@@ -280,7 +271,7 @@ function readPassesWidget() {
         colors.push($(this).find('div span').text());
       }
     });
-    if (colors.length > 0) { 
+    if (colors.length > 0) {
       var feedrate = $(this).find('.feedrate').val();
       var intensity = $(this).find('.intensity').val();
       DataHandler.addPass({'colors':colors, 'feedrate':feedrate, 'intensity':intensity});
@@ -343,11 +334,11 @@ $(document).ready(function(){
   /// init //////////////////////////////////////
 
   // empty job_name on reload
-  $("#job_name").val("");  
+  $("#job_name").val("");
 
   populate_job_queue();
   populate_job_library();
- 
+
   /// canvas init
   var w = app_settings.canvas_dimensions[0];
   var h = app_settings.canvas_dimensions[1];
@@ -363,14 +354,14 @@ $(document).ready(function(){
       $(this).css('cursor', 'url');
     },
     function () {
-      $(this).css('cursor', 'pointer'); 
+      $(this).css('cursor', 'pointer');
     }
   );
 
 
   /// button events /////////////////////////////
 
-  $("#progressbar").hide();  
+  $("#progressbar").hide();
   $("#job_submit").click(function(e) {
     // send gcode string to server via POST
     DataHandler.setByJson($('#job_data').val());
@@ -427,12 +418,12 @@ $(document).ready(function(){
         populate_job_queue();
       } else {
         $().uxmessage('error', "failed to clear queue");
-      }  
+      }
     }).error(function() {
-      $().uxmessage('error', "clear queue failed"); 
-    });  
+      $().uxmessage('error', "clear queue failed");
+    });
     return false;
-  });  
+  });
 
 
   $("#export_json_btn").click(function(e) {
@@ -451,8 +442,8 @@ $(document).ready(function(){
     readPassesWidget();
     var filedata = DataHandler.getGcode()
     var filename = $('#job_name').val();
-    if (filename.slice(-4) != '.gnc') {
-      filename = filename + '.gnc';
+    if (filename.slice(-4) != '.ngc') {
+      filename = filename + '.ngc';
     }
     generate_download(filename, filedata);
     return false;

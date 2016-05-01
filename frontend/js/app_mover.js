@@ -1,3 +1,18 @@
+
+var gcode_coordinate_offset = undefined;
+
+function reset_offset() {
+  $("#offset_area").hide();
+  $('#offset_area').css({'opacity':0.0, left:0, top:0});
+  gcode_coordinate_offset = undefined;
+  $("#cutting_area").css('border', '1px dashed #ff0000');
+  $("#offset_area").css('border', '1px dashed #aaaaaa');
+  send_gcode('G54\n', "Offset reset.", false);
+  $('#coordinates_info').text('');
+}
+
+
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -87,7 +102,38 @@ $(document).ready(function(){
     return coords_text;
   }
 
+  function assemble_offset_text(x,y) {
+    var x_phy = x*app_settings.to_physical_scale;
+    var y_phy = y*app_settings.to_physical_scale;
+    return 'set offset to (' + x_phy.toFixed(0) + ', '+ y_phy.toFixed(0) + ')'
+  }
 
+  function assemble_and_set_offset(x, y) {
+    if (x == 0 && y == 0) {
+      reset_offset()
+    } else {
+      $("#offset_area").show();
+      $("#offset_area").animate({
+        opacity: 1.0,
+        left: x,
+        top: y,
+        width: 609-x,
+        height: 304-y
+      }, 200 );
+      gcode_coordinate_offset = [x,y];
+      var x_phy = x*app_settings.to_physical_scale + app_settings.table_offset[0];
+      var y_phy = y*app_settings.to_physical_scale + app_settings.table_offset[1];
+      var gcode = 'G10 L2 P1 X'+ x_phy.toFixed(app_settings.num_digits) + 
+                  ' Y' + y_phy.toFixed(app_settings.num_digits) + '\nG55\n';
+      send_gcode(gcode, "Offset set.", false);
+      $(this).css('border', '1px dashed #aaaaaa');
+      $("#offset_area").css('border', '1px dashed #ff0000');
+    }
+  }
+  
+
+
+  
   $("#cutting_area").mousedown(function() {
     isDragging = true;
   }).mouseup(function() {
@@ -100,14 +146,26 @@ $(document).ready(function(){
     var x = (e.pageX - offset.left);
     var y = (e.pageY - offset.top);
 
-    assemble_and_send_gcode(x,y);
+    if(e.shiftKey) {
+      assemble_and_set_offset(x,y);
+    } else if (!gcode_coordinate_offset) {  
+      assemble_and_send_gcode(x,y);
+    } else {
+      var pos = $("#offset_area").position()
+      if ((x < pos.left) || (y < pos.top)) {       
+        //// reset offset
+        reset_offset();
+      }
+    }
     return false;
   });
 
 
   $("#cutting_area").hover(
     function () {
-      $(this).css('border', '1px dashed #ff0000');
+      if (!gcode_coordinate_offset) {
+        $(this).css('border', '1px dashed #ff0000');
+      }
       $(this).css('cursor', 'crosshair');
     },
     function () {
@@ -121,13 +179,61 @@ $(document).ready(function(){
     var offset = $(this).offset();
     var x = (e.pageX - offset.left);
     var y = (e.pageY - offset.top);
-    coords_text = assemble_info_text(x,y);
-    if (e.altKey &&isDragging) {
-        assemble_and_send_gcode(x,y);
+    if (!gcode_coordinate_offset) {
+      if(!e.shiftKey) {
+        coords_text = assemble_info_text(x,y);
+        if (e.altKey &&isDragging) {
+            assemble_and_send_gcode(x,y);
+        }
+      } else {
+        coords_text = assemble_offset_text(x,y);
+      }
+    } else {
+      if(e.shiftKey) {
+        coords_text = 'set offset to (' + x + ', '+ y + ')'
+      } else {
+        var pos = $("#offset_area").position()
+        if ((x < pos.left) || (y < pos.top)) {           
+          coords_text = 'click to reset offset';
+        } else {
+          coords_text = '';
+        }
+      }
     }
     $('#coordinates_info').text(coords_text);
   });
+  
+  
+  $("#offset_area").click(function(e) { 
+    if(!e.shiftKey) {
+      var offset = $(this).offset();
+      var x = (e.pageX - offset.left);
+      var y = (e.pageY - offset.top);     
+      assemble_and_send_gcode(x,y);
+      return false
+    }
+  });
 
+  $("#offset_area").hover(
+    function () {
+    },
+    function () {
+      $('#offset_info').text('');   
+    }
+  );
+  
+  $("#offset_area").mousemove(function (e) {
+    if(!e.shiftKey) {
+      var offset = $(this).offset();
+      var x = (e.pageX - offset.left);
+      var y = (e.pageY - offset.top);
+      $('#offset_info').text(assemble_info_text(x,y));
+    } else {
+      $('#offset_info').text('');
+    }
+  });
+  
+  
   /// motion parameters /////////////////////////
 
   $("#intensity_field" ).val('0');
@@ -285,5 +391,18 @@ $(document).ready(function(){
     assemble_and_send_gcode(x, y, true);
   }); 
 
+  $("#origin_set_btn").click(function(e) {
+    var x_str = $('#x_location_field').val();
+    if (x_str == '') {
+      x_str = '0';
+    }
+    var x = parseFloat(x_str)*app_settings.to_canvas_scale;
+    var y_str = $('#y_location_field').val();
+    if (y_str == '') {
+      y_str = '0';
+    }
+    var y = parseFloat(y_str)*app_settings.to_canvas_scale;
+    assemble_and_set_offset(x, y);
+  });  
 
 });  // ready

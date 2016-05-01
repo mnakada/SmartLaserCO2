@@ -1,6 +1,6 @@
 
 var app_settings = {
-  work_area_dimensions: [280,230],
+  work_area_dimensions: [600,440],
   max_seek_speed: 8000,
   default_feedrate: 1500,
   default_intensity: 30,

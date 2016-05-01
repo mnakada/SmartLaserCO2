@@ -256,6 +256,14 @@ $(document).ready(function(){
           $('#door_status_btn').removeClass('btn-warning')
           $('#door_status_btn').addClass('btn-success')         
         }
+        if (data.chiller_off) {
+          $('#chiller_status_btn').removeClass('btn-success')
+          $('#chiller_status_btn').addClass('btn-warning')           
+          // $().uxmessage('warning', "Chiller is off!"); 
+        } else {
+          $('#chiller_status_btn').removeClass('btn-warning')
+          $('#chiller_status_btn').addClass('btn-success')
+        }
         if (data.power_off) {
           $().uxmessage('error', "Power is off!"); 
           $().uxmessage('notice', "Turn on Lasersaur power then run homing cycle to reset.");          
@@ -276,7 +284,8 @@ $(document).ready(function(){
           // only update if not manually entering at the same time
           if (!$('#x_location_field').is(":focus") &&
               !$('#y_location_field').is(":focus") &&
-              !$('#location_set_btn').is(":focus"))
+              !$('#location_set_btn').is(":focus") &&
+              !$('#origin_set_btn').is(":focus"))
           {
             var x = parseFloat(data.x).toFixed(2) - app_settings.table_offset[0];
             $('#x_location_field').val(x.toFixed(2));
@@ -434,6 +443,10 @@ $(document).ready(function(){
   $("#go_to_origin").tooltip({placement:'bottom', delay: {show:500, hide:100}});
   $("#go_to_origin").click(function(e){
     var gcode;
+    if(e.shiftKey) {
+      // also reset offset
+      reset_offset();
+    }
     gcode = 'G90\nG0X0Y0F'+app_settings.max_seek_speed+'\n'
     // $().uxmessage('notice', gcode);  
     send_gcode(gcode, "Going to origin ...", false);

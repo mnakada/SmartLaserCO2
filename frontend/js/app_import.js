@@ -36,7 +36,7 @@ $(document).ready(function(){
   //reset tap
   $('#canvas_properties .colorbtns').html('');  // reset colors
   canvas.background('#ffffff');
-  $('#dpi_import_info').html('Supported file formats are: <b>SVG</b>, <b>DXF</b>');
+  $('#dpi_import_info').html('読み込み可能ファイル: <b>SVG</b>, <b>DXF</b>');
 
 
   $('#bed_size_note').html(app_settings.work_area_dimensions[0]+'x'+
@@ -50,10 +50,10 @@ $(document).ready(function(){
     var browser_supports_file_api = true;
     if (!window.FileReader) {
       browser_supports_file_api = false;
-      $().uxmessage('notice', "This requires a modern browser with File API support.");
+      $().uxmessage('notice', "お使いのブラウザでは動作しません。最新バージョンをお使いください！");
     } else if (!input.files) {
       browser_supports_file_api = false;
-      $().uxmessage('notice', "This browser does not support the files property.");
+      $().uxmessage('notice', "お使いのブラウザでは動作しません。最新バージョンをお使いください");
     }
 
     if (browser_supports_file_api) {
@@ -62,7 +62,7 @@ $(document).ready(function(){
         fr.onload = sendToBackend
         fr.readAsText(input.files[0])
       } else {
-        $().uxmessage('error', "No file was selected.");
+        $().uxmessage('error', "ファイルが選択されていません。");
       }
     } else {  // fallback
       // $().uxmessage('notice', "Using fallback: file form upload.");
@@ -82,15 +82,15 @@ $(document).ready(function(){
     var filename = $('#import_name').val()
     var ext = filename.slice(-4);
     if (ext == '.svg' || ext == '.SVG') {
-      $().uxmessage('notice', "parsing SVG ...");
+      $().uxmessage('notice', "SVG解析中");
     } else if (ext == '.dxf' || ext == '.DXF') {
-      $().uxmessage('notice', "parsing DXF ...");
-      $().uxmessage('warning', "DXF import is limited to R14, lines, arcs, lwpolylines, and mm units");
+      $().uxmessage('notice', "DXF解析中");
+      $().uxmessage('warning', "DXFファイルはAutoCADバージョン14までの直線(LINE)、円弧(ARC)、 ライトウェイトポリライン(LWPOLYLINE)に対応してます。");
     } else if (ext == '.ngc' || ext == '.NGC') {
-      $().uxmessage('notice', "parsing G-Code ...");
+      $().uxmessage('notice', "Gコード解析中");
     }
     if (filedata.length > 102400) {
-      $().uxmessage('notice', "Importing large files may take a few minutes.");
+      $().uxmessage('notice', "大容量のファイルの場合、読み込みに数分かかることがあります。");
     }
     $.ajax({
       type: "POST",
@@ -103,21 +103,21 @@ $(document).ready(function(){
       dataType: "json",
       success: function (data) {
         if (ext == '.svg' || ext == '.SVG') {
-          $().uxmessage('success', "SVG parsed.");
-          $('#dpi_import_info').html('Using <b>' + data.dpi + '</b> for converting units.');
+          $().uxmessage('success', "SVG解析完了."); 
+          $('#dpi_import_info').html('ピクセル単位を<b>' + data.dpi + 'dpi</b>で変換');
         } else if (ext == '.dxf' || ext == '.DXF') {
-          $().uxmessage('success', "DXF parsed.");
-          $('#dpi_import_info').html('Assuming mm units in DXF file.');
+          $().uxmessage('success', "DXF解析完了."); 
+          $('#dpi_import_info').html('単位mmでDXFファイルを読み込み');
         } else if (ext == '.ngc' || ext == '.NGC') {
-          $().uxmessage('success', "G-Code parsed.");
+          $().uxmessage('success', "Gコード解析完了."); 
         } else {
-          $().uxmessage('warning', "File extension not supported. Import SVG, DXF, or G-Code files.");
+          $().uxmessage('warning', "指定のファイルはサポートしていません。SVG、DXF、Gコードファイルを指定してください。"); 
         }
         // alert(JSON.stringify(data));
         handleParsedGeometry(data);
       },
       error: function (data) {
-        $().uxmessage('error', "backend error.");
+        $().uxmessage('error', "バックエンドエラー");
       },
       complete: function (data) {
         $('#file_import_btn').button('reset');
@@ -154,7 +154,7 @@ $(document).ready(function(){
       for (var color in DataHandler.getColorOrder()) {
         $('#canvas_properties .colorbtns').append('<button class="preview_color active-strong active btn btn-small" style="margin:2px"><div style="width:10px; height:10px; background-color:'+color+'"><span style="display:none">'+color+'</span></div></button>');
       }
-      $('#canvas_properties .colorbtns').append(' <span id="num_selected_colors">0</span> colors selected for import.');
+      $('#canvas_properties .colorbtns').append(' <span id="num_selected_colors">0</span>色読み込む');
       $('button.preview_color').click(function(e){
         // toggling manually because automatic toggling
         // would happen after generatPreview()
@@ -176,8 +176,8 @@ $(document).ready(function(){
       // actually redraw right now
       generatePreview();
     } else {
-      $().uxmessage('notice', "No data loaded to write G-code.");
-    }
+      $().uxmessage('notice', "指定したファイルには、データがありません。");
+    }   
   }
 
 
@@ -185,7 +185,7 @@ $(document).ready(function(){
     if (!DataHandler.isEmpty()) {
       DataHandler.draw(canvas, app_settings.to_canvas_scale, getDeselectedColors());
     } else {
-      $().uxmessage('notice', "No data loaded to generate preview.");
+      $().uxmessage('notice', "表示するデータがありません。");
     }
   }
 
@@ -242,10 +242,10 @@ $(document).ready(function(){
       // reset tap
       $('#canvas_properties .colorbtns').html('');  // reset colors
       canvas.background('#ffffff');
-      $('#dpi_import_info').html('Supported file formats are: <b>SVG</b>, <b>DXF</b>');
+      $('#dpi_import_info').html('読み込み可能ファイル: <b>SVG</b>, <b>DXF</b>');
       $('#import_name').val('');
     } else {
-      $().uxmessage('warning', "no data");
+      $().uxmessage('warning', "データがありません。");
     }
     return false;
   });

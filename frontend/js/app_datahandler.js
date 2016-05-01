@@ -720,10 +720,10 @@ DataHandler = {
     rate = parseInt(rate);
     if (rate < .1) {
       rate = .1;
-      $().uxmessage('warning', "Feedrate constrained to 0.1");
+      $().uxmessage('warning', "速度は0.1以上に設定してください。");
     } else if (rate > 8000) {
       rate = 8000;
-      $().uxmessage('warning', "Feedrate constrained to 8000");
+      $().uxmessage('warning', "速度は8000以下に設定してください。");
     }
     return rate.toString();
   },
@@ -732,10 +732,10 @@ DataHandler = {
     intens = parseInt(intens);
     if (intens < 0) {
       intens = 0;
-      $().uxmessage('warning', "Intensity constrained to 0");
+      $().uxmessage('warning', "出力パワーは0%以上に設定してください。");
     } else if (intens > 100) {
       intens = 100;
-      $().uxmessage('warning', "Intensity constrained to 100");
+      $().uxmessage('warning', "出力パワーは100%以下に設定してください。");
     }
     //map to 255 for now until we change the backend
     return Math.round(intens * 2.55).toString();

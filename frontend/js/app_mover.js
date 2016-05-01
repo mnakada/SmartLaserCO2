@@ -42,19 +42,19 @@ $(document).ready(function(){
     if (!(isNaN(x_phy)) && x_phy != null) {  // allow for NaN, null
       if (x_phy < 0) {
         x_phy = 0;
-        $().uxmessage('warning', "x target constrained to work area");
+        $().uxmessage('warning', "x軸は領域内からはみ出しています。");
       } else if (x_phy > app_settings.work_area_dimensions[0]) {
         x_phy = app_settings.work_area_dimensions[0];
-        $().uxmessage('warning', "x target constrained to work area");
+        $().uxmessage('warning', "x軸は領域内からはみ出しています。");
       }
     }
     if (!(isNaN(y_phy)) && y_phy != null) {
       if (y_phy < 0) {
         y_phy = 0;
-        $().uxmessage('warning', "y target constrained to work area");
+        $().uxmessage('warning', "y軸は領域内からはみ出しています。");
       } else if (y_phy > app_settings.work_area_dimensions[1]) {
         y_phy = app_settings.work_area_dimensions[1];
-        $().uxmessage('warning', "y target constrained to work area");
+        $().uxmessage('warning', "y軸は領域内からはみ出しています。");
       }
     }
     var g0_or_g1 = 'G0';
@@ -76,28 +76,28 @@ $(document).ready(function(){
     }
     gcode += 'F' + feedrate + '\nS0\n'+air_assist_off; 
     // $().uxmessage('notice', gcode);
-    send_gcode(gcode, "Motion request sent.", false);    
+    send_gcode(gcode, "移動命令送信", false);    
   }
   
   function assemble_info_text(x,y) {
     var x_phy = x*app_settings.to_physical_scale;
     var y_phy = y*app_settings.to_physical_scale;
     var coords_text;
-    var move_or_cut = 'move';
+    var move_or_cut = '移動';
     if($('#feed_btn').hasClass("active")){
-      move_or_cut = 'cut';
+      move_or_cut = '切断移動';
     }
     var feedrate = DataHandler.mapConstrainFeedrate($( "#feedrate_field" ).val());
     var intensity =  DataHandler.mapConstrainIntesity($( "#intensity_field" ).val());
     var coords_text;
-    if (move_or_cut == 'cut') {
-      coords_text = move_or_cut + ' to (' + 
+    if (move_or_cut == '切断移動') {
+      coords_text = '(' + 
                     x_phy.toFixed(0) + ', '+ 
-                    y_phy.toFixed(0) + ') at ' + 
-                    feedrate + 'mm/min and ' + Math.round(intensity/2.55) + '% intensity';
+                    y_phy.toFixed(0) + ')へ' + move_or_cut + '、 速度:' +
+                    feedrate + 'mm/min、 レーザー強度:' + Math.round(intensity/2.55) + '%';
     } else {
-      coords_text = move_or_cut + ' to (' + x_phy.toFixed(0) + ', '+ 
-                    y_phy.toFixed(0) + ') at ' + feedrate + 'mm/min'
+      coords_text = ' (' + x_phy.toFixed(0) + ', '+ 
+                    y_phy.toFixed(0) + ')へ' + move_or_cut + '、 速度:' + feedrate + 'mm/min'
     }
     return coords_text;
   }
@@ -105,7 +105,7 @@ $(document).ready(function(){
   function assemble_offset_text(x,y) {
     var x_phy = x*app_settings.to_physical_scale;
     var y_phy = y*app_settings.to_physical_scale;
-    return 'set offset to (' + x_phy.toFixed(0) + ', '+ y_phy.toFixed(0) + ')'
+    return '原点を移動(' + x_phy.toFixed(0) + ', '+ y_phy.toFixed(0) + ')'
   }
 
   function assemble_and_set_offset(x, y) {
@@ -117,8 +117,8 @@ $(document).ready(function(){
         opacity: 1.0,
         left: x,
         top: y,
-        width: 609-x,
-        height: 304-y
+        width: app_settings.work_area_dimensions[0]/app_settings.to_physical_scale-x,
+        height: app_settings.work_area_dimensions[1]/app_settings.to_physical_scale-y
       }, 200 );
       gcode_coordinate_offset = [x,y];
       var x_phy = x*app_settings.to_physical_scale + app_settings.table_offset[0];
@@ -190,11 +190,11 @@ $(document).ready(function(){
       }
     } else {
       if(e.shiftKey) {
-        coords_text = 'set offset to (' + x + ', '+ y + ')'
+        coords_text = '原点を移動(' + x + ', '+ y + ')'
       } else {
         var pos = $("#offset_area").position()
         if ((x < pos.left) || (y < pos.top)) {           
-          coords_text = 'click to reset offset';
+          coords_text = '原点をリセット';
         } else {
           coords_text = '';
         }
@@ -202,7 +202,6 @@ $(document).ready(function(){
     }
     $('#coordinates_info').text(coords_text);
   });
-  
   
   $("#offset_area").click(function(e) { 
     if(!e.shiftKey) {
@@ -276,19 +275,19 @@ $(document).ready(function(){
 
   $("#jog_up_btn").click(function(e) {
     var gcode = 'G91\nG0Y-10F6000\nG90\n';
-    send_gcode(gcode, "Moving Up ...", false);
+    send_gcode(gcode, "上に移動 ...", false);
   });   
   $("#jog_left_btn").click(function(e) {
     var gcode = 'G91\nG0X-10F6000\nG90\n';
-    send_gcode(gcode, "Moving Left ...", false);
+    send_gcode(gcode, "左に移動 ...", false);
   });   
   $("#jog_right_btn").click(function(e) {
     var gcode = 'G91\nG0X10F6000\nG90\n';
-    send_gcode(gcode, "Moving Right ...", false);
+    send_gcode(gcode, "右に移動 ...", false);
   });
   $("#jog_down_btn").click(function(e) {
     var gcode = 'G91\nG0Y10F6000\nG90\n';
-    send_gcode(gcode, "Moving Down ...", false);
+    send_gcode(gcode, "下に移動 ...", false);
   });
 
 
@@ -297,21 +296,21 @@ $(document).ready(function(){
   $(document).on('keydown', null, 'right', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0X10F6000\nG90\n';
-      send_gcode(gcode, "Moving Right ...", false);
+      send_gcode(gcode, "右に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'alt+right', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0X2F6000\nG90\n';
-      send_gcode(gcode, "Moving Right ...", false);
+      send_gcode(gcode, "右に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'shift+right', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0X50F6000\nG90\n';
-      send_gcode(gcode, "Moving Right ...", false);
+      send_gcode(gcode, "右に移動 ...", false);
       return false;
     }
   });
@@ -319,21 +318,21 @@ $(document).ready(function(){
   $(document).on('keydown', null, 'left', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0X-10F6000\nG90\n';
-      send_gcode(gcode, "Moving Left ...", false);
+      send_gcode(gcode, "左に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'alt+left', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0X-2F6000\nG90\n';
-      send_gcode(gcode, "Moving Left ...", false);
+      send_gcode(gcode, "左に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'shift+left', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0X-50F6000\nG90\n';
-      send_gcode(gcode, "Moving Left ...", false);
+      send_gcode(gcode, "左に移動 ...", false);
       return false;
     }
   });
@@ -341,21 +340,21 @@ $(document).ready(function(){
   $(document).on('keydown', null, 'up', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0Y-10F6000\nG90\n';
-      send_gcode(gcode, "Moving Up ...", false);
+      send_gcode(gcode, "上に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'alt+up', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0Y-2F6000\nG90\n';
-      send_gcode(gcode, "Moving Up ...", false);
+      send_gcode(gcode, "上に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'shift+up', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0Y-50F6000\nG90\n';
-      send_gcode(gcode, "Moving Up ...", false);
+      send_gcode(gcode, "上に移動 ...", false);
       return false;
     }
   });
@@ -363,21 +362,21 @@ $(document).ready(function(){
   $(document).on('keydown', null, 'down', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0Y10F6000\nG90\n';
-      send_gcode(gcode, "Moving Down ...", false);
+      send_gcode(gcode, "下に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'alt+down', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0Y2F6000\nG90\n';
-      send_gcode(gcode, "Moving Down ...", false);
+      send_gcode(gcode, "下に移動 ...", false);
       return false;
     }
   });
   $(document).on('keydown', null, 'shift+down', function(e){
     if ($('#tab_mover').is(":visible")) {
       var gcode = 'G91\nG0Y50F6000\nG90\n';
-      send_gcode(gcode, "Moving Down ...", false);
+      send_gcode(gcode, "下に移動 ...", false);
       return false;
     }
   });

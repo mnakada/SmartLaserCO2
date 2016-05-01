@@ -130,7 +130,7 @@ function add_to_job_queue(name) {
       }
       load_into_job_widget(name, jobdata);
     }).error(function() {
-      $().uxmessage('error', "File not found: " + name);
+      $().uxmessage('error', "ファイルが見つかりません: " + name);
     });
     return false;
   });
@@ -374,10 +374,10 @@ $(document).ready(function(){
       {
         send_gcode(DataHandler.getGcode(), "G-Code sent to backend.", true);
       } else {
-        $().uxmessage('warning', "rejecting, outside work area");
+        $().uxmessage('warning', "作業領域外になります。");
       }
     } else {
-      $().uxmessage('warning', "nothing to cut -> please assign colors to passes");
+      $().uxmessage('warning', "色の選択がありません。加工する色を選択してください。");
     }
     return false;
   });
@@ -395,10 +395,10 @@ $(document).ready(function(){
       {
         send_gcode(DataHandler.getBboxGcode(), "BBox G-Code sent to backend", true);
       } else {
-        $().uxmessage('warning', "rejecting, outside work area");
+        $().uxmessage('warning', "作業領域外になります。");
       }
     } else {
-      $().uxmessage('warning', "nothing to cut -> please assign colors to passes");
+      $().uxmessage('warning', "色の選択がありません。加工する色を選択してください。");
     }
     return false;
   });
@@ -471,7 +471,7 @@ $(document).ready(function(){
     if (getNumPasses() < maxNumPassWidgets) {
       addPasses(1);
     } else {
-      $().uxmessage('error', "Max number of passes reached.");
+      $().uxmessage('error', "パスの最大数に達しました。");
     }
     return false;
   });

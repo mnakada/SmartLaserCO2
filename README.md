@@ -1,3 +1,2 @@
-# SmartLaserMini
-
-http://www.smartdiys.com/en/smart-laser-mini/
+# SmartLaserCO2 (Unofficial code)
+http://www.smartdiys.com/smart-laser-co2/

@@ -47,7 +47,6 @@ class SVGAttributeReader:
             'r': self.dimensionAttrib,
             'cx': self.dimensionAttrib,
 # C:Raster Start
-#            'cy': self.dimensionAttrib
             'cy': self.dimensionAttrib,
             '{http://www.w3.org/1999/xlink}href': self.stringAttrib
 # C:Raster End

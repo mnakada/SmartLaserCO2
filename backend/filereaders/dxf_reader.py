@@ -9,6 +9,10 @@ __author__ = 'David S. Touretzky, Stefan Hechenberger <stefan@nortd.com>'
 import math
 import StringIO
 
+from point import Point
+from arcgeo import ArcGeo
+from linegeo import LineGeo
+from spline_convert import Spline2Arcs
 
 
 
@@ -28,52 +32,69 @@ class DXFReader:
         # parsed path data, paths by color
         # {'#ff0000': [[path0, path1, ..], [path0, ..], ..]}
         # Each path is a list of vertices which is a list of two floats.        
-        self.boundarys = {'#000000':[]}
-        self.black_boundarys = self.boundarys['#000000']
+        self.black_boundarys = []
 
         self.metricflag = 1
         self.linecount = 0
         self.line = ''
         self.dxfcode = ''
 
-
-
     def parse(self, dxfstring):
         self.linecount = 0
         self.line = ""
+        self.cmd = ""
         self.infile = StringIO.StringIO(dxfstring)
-
-        # assume metric file for now
-        # self.readtosection(9, "$MEASUREMENT")
-        # self.metricflag = int(self.readgroup(70))
-        # if self.metricflag == 0:
-        #     print "Found imperial units indicator -> converting to mm."
-        # else:
-        #     print "Found metric units indicator."
-        #     if self.metricflag != 1:
-        #         print "Invalid $MEASUREMENT value!  Assuming metric units."
-        #         self.metricflag = 1
         self.metricflag = 1
 
         self.readtosection(2, "ENTITIES")
+        self.readtocode(0)
+        self.nextcmd = self.line
         while 1:
-            self.readtocode(0)
-            if self.line == "LINE": self.do_line()
-            elif self.line == "CIRCLE": self.do_circle()
-            elif self.line == "ARC": self.do_arc()
-            elif self.line == "LWPOLYLINE": self.do_lwpolyline()
-            elif self.line == "SPLINE": self.complain_spline()
-            elif self.line == "ENDSEC": break
+            self.cmd = self.readblock()
+            if self.cmd == "LINE": self.do_line()
+            elif self.cmd == "CIRCLE": self.do_circle()
+            elif self.cmd == "ARC": self.do_arc()
+            elif self.cmd == "LWPOLYLINE": self.do_lwpolyline()
+            elif self.cmd == "POLYLINE": self.do_polyline()
+            elif self.cmd == "VERTEX": self.do_polyline_vertex()
+            elif self.cmd == "SEQEND": self.do_polyline_seqend()
+            elif self.cmd == "SPLINE": self.do_spline()
+            elif self.cmd == "ENDSEC": break
             else: self.complain_invalid()
-
         self.infile.close()
-        print "Done!"
-        return {'boundarys':self.boundarys}
 
+        sx = sy = float("inf")
+        for path in self.black_boundarys:
+          for point in path:
+            if point[0] < sx:
+              sx = point[0]
+            if -point[1] < sy:
+              sy = -point[1]
+        self.sx = sx
+        self.sy = sy
+        return {'boundarys':{'#000000':map(self.reverse_path, self.black_boundarys)}}
+
+    def reverse_path(self, path):
+        new_path = []
+        for point in path:
+          new_path.append([point[0] - self.sx, -point[1] - self.sy])
+        return new_path
 
     ################
     # Routines to read entries from the DXF file
 
+    def readblock(self):
+      self.block = []
+      while 1:
+        self.readonepair()
+        if self.dxfcode == 0:
+          cmd = self.nextcmd
+          self.nextcmd = self.line
+          break
+        self.block.append([int(self.dxfcode), self.line])
+      self.blockindex = 0
+      return cmd
+      
     def readtosection(self, codeval, stringval):
         self.dxfcode = None
         while (self.dxfcode != codeval) or (self.line != stringval):
@@ -99,11 +120,17 @@ class DXFReader:
             self.readonepair()
 
     def readgroup(self, codeval):
-        self.readtocode(codeval)
-        return self.line
+        val = None
+        while self.blockindex < len(self.block):
+          if self.block[self.blockindex][0] == codeval:
+            val = self.block[self.blockindex][1]
+            self.blockindex += 1
+            break
+          self.blockindex += 1
+        return val
 
     ################
-    # Translate each type of entity (line, circle, arc, lwpolyline)
+    # Translate each type of entity (line, circle, arc, lwpolyline, polyline, spline)
 
     def do_line(self):
         x1 = float(self.readgroup(10))
@@ -158,6 +185,7 @@ class DXFReader:
 
     def do_lwpolyline(self):
         numverts = int(self.readgroup(90))
+        plflag = int(self.readgroup(70))
         path = []
         self.black_boundarys.append(path)
         for i in range(0,numverts):
@@ -167,15 +195,104 @@ class DXFReader:
                 x = x*25.4
                 y = y*25.4
             path.append([x,y])
+        if plflag == 1:
+            path.append(path[0])
 
-    def complain_spline(self):
-        print "Encountered a SPLINE at line", self.linecount
-        print "This program cannot handle splines at present."
-        print "Convert the spline to an LWPOLYLINE using Save As options in SolidWorks."
-        raise ValueError
+    def do_polyline(self):
+        self.polyline_flag = int(self.readgroup(70))
+        self.polyline_path = []
+        self.next_bulge = 0
+        self.LastPos = None
+
+    def do_polyline_vertex(self):
+        x = float(self.readgroup(10))
+        y = float(self.readgroup(20))
+        if self.metricflag == 0:
+          x = x*25.4
+          y = y*25.4
+        b = self.readgroup(42)
+        if b == None:
+          b = 0
+        self.blockindex = 0
+        f = self.readgroup(70)
+        if f == None:
+          f = 0
+        if f != 16:
+          if self.next_bulge == 0:
+            self.polyline_path.append([x,y])
+          else:
+            self.bulge2arc(self.polyline_path, self.lastPos, [x,y], self.next_bulge)
+        self.next_bulge = b
+        self.lastPos = [x,y]
+
+    def do_polyline_seqend(self):
+        if self.polyline_flag == 1:
+          if self.next_bulge == 0:
+            self.polyline_path.append(self.polyline_path[0])
+          else:
+            self.bulge2arc(self.polyline_path, self.lastPos, self.polyline_path[0], self.next_bulge)
+        self.black_boundarys.append(self.polyline_path)
+
+    def bulge2arc(self, path, ps, pe, bulge):
+        c = (1 / bulge - bulge) / 2
+        if bulge > 0:
+          ps, pe = (pe, ps)
+        O = Point((ps[0] + pe[0] - (pe[1] - ps[1]) * c) / 2,
+                  (ps[1] + pe[1] + (pe[0] - ps[0]) * c) / 2)
+        s_ang = O.norm_angle(Point(ps[0], ps[1]))
+        e_ang = O.norm_angle(Point(pe[0], pe[1]))
+        r = O.distance(Point(ps[0], ps[1]))
+        sweep = int((((e_ang - s_ang) % (-2 * pi)) + 2 * pi) > 0)
+        addArc(path, ps[0], ps[1], r, r, 0, 0, sweep, pe[0], pe[1])
+
+    def do_spline(self):
+        spline_flag = int(self.readgroup(70))
+        degree = int(self.readgroup(71))
+        nknots = int(self.readgroup(72)) # 29
+        ncpts = int(self.readgroup(73)) # 25
+        knots= []
+        for i in range(0,nknots):
+          sk = float(self.readgroup(40))
+          knots.append(sk)
+        weights = []
+        for i in range(0,nknots):
+          sg = self.readgroup(41)
+          if sg == None:
+            break
+          weights.append(float(sg))
+        self.blockindex = 0
+        cpoints = []
+        for i in range(0,ncpts):
+          x = float(self.readgroup(10))
+          y = float(self.readgroup(20))
+          if self.metricflag == 0:
+            x = x*25.4
+            y = y*25.4
+          cpoints.append(Point(x,y))
+        if len(weights) == 0:
+          for nr in range(len(cpoints)):
+            weights.append(1)
+        
+        spline = Spline2Arcs(degree, knots, \
+                                     weights, cpoints, self.tolerance, 1)
+        geos = spline.Curve
+
+        path = []
+        self.black_boundarys.append(path)
+        lastPos = None
+        for geo in geos:
+          if lastPos == None:
+            path.append([geo.Ps.x, geo.Ps.y])
+          if isinstance(geo, LineGeo):
+            path.append([geo.Pe.x, geo.Pe.y])
+          if isinstance(geo, ArcGeo):
+            large_arc = int(math.fabs(geo.e_ang - geo.s_ang) >= 2 * math.pi)
+            sweep = int(geo.ext > 0)
+            self.addArc(path, geo.Ps.x, geo.Ps.y, geo.r, geo.r, 0, large_arc , sweep, geo.Pe.x, geo.Pe.y)
+          lastPos = geo.Pe
 
     def complain_invalid(self):
-        print "Invalid element '" + self.line + "' on line", self.linecount
+        print "Invalid element '" + self.cmd + "' on line", self.linecount
         print "Can't process this DXF file. Sorry!"
         raise ValueError
 
@@ -254,8 +371,4 @@ class DXFReader:
         path.append(c1Init)
         _recursiveArc(t1Init, t2Init, c1Init, c5Init, 0, self.tolerance2)
         path.append(c5Init)
-
-
-
-
 

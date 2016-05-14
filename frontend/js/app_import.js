@@ -85,7 +85,7 @@ $(document).ready(function(){
       $().uxmessage('notice', "SVG解析中");
     } else if (ext == '.dxf' || ext == '.DXF') {
       $().uxmessage('notice', "DXF解析中");
-      $().uxmessage('warning', "DXFファイルはAutoCADバージョン14までの直線(LINE)、円弧(ARC)、 ライトウェイトポリライン(LWPOLYLINE)に対応してます。");
+      $().uxmessage('warning', "DXFファイルはASCIIフォーマットPOINT,LINE,ARC,\nCIRCLE,LWPOLYLINE,\nPOLYLINE,SPLINE\nに対応してます。");
     } else if (ext == '.ngc' || ext == '.NGC') {
       $().uxmessage('notice', "Gコード解析中");
     }

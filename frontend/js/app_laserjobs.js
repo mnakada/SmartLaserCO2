@@ -228,11 +228,11 @@ function addPasses(num) {
                       '" title="feedrate 1-'+app_settings.max_seek_speed+
                       'mm/min" style="width:32px" data-delay="500">' +
                   '</div>' +
-                  '<div class="input-prepend" style="margin-left:6px">' +
-                    '<span class="add-on" style="margin-right:-5px;">%</span>' +
+                  '<div class="input-append" style="margin-left:6px">' +
                     '<input class="intensity" type="textfield" value="'+
                       app_settings.default_intensity+
                       '" title="intensity 0-100%" style="width:26px;" data-delay="500">' +
+                    '<span class="add-on" style="margin-left:-5px;">%</span>' +
                   '</div>' +
                   '<span class="colorbtns" style="margin-left:6px">'+buttons+'</span>' +
                 '</div>' +
@@ -372,7 +372,7 @@ $(document).ready(function(){
           job_bbox[2] <= app_settings.work_area_dimensions[0] &&
           job_bbox[3] <= app_settings.work_area_dimensions[1])
       {
-        send_gcode(DataHandler.getGcode(), "G-Code sent to backend.", true);
+        send_gcode(DataHandler.getGcode(), "データ送信中", true);
       } else {
         $().uxmessage('warning', "作業領域外になります。");
       }
@@ -393,7 +393,7 @@ $(document).ready(function(){
           job_bbox[2] <= app_settings.work_area_dimensions[0] &&
           job_bbox[3] <= app_settings.work_area_dimensions[1])
       {
-        send_gcode(DataHandler.getBboxGcode(), "BBox G-Code sent to backend", true);
+        send_gcode(DataHandler.getBboxGcode(), "境界領域送信中", true);
       } else {
         $().uxmessage('warning', "作業領域外になります。");
       }

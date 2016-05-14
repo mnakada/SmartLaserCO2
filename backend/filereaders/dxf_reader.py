@@ -59,6 +59,8 @@ class DXFReader:
             elif self.cmd == "VERTEX": self.do_polyline_vertex()
             elif self.cmd == "SEQEND": self.do_polyline_seqend()
             elif self.cmd == "SPLINE": self.do_spline()
+            elif self.cmd == "POINT": self.do_point()
+            elif self.cmd == "VIEWPORT": pass
             elif self.cmd == "ENDSEC": break
             else: self.complain_invalid()
         self.infile.close()
@@ -290,6 +292,14 @@ class DXFReader:
             sweep = int(geo.ext > 0)
             self.addArc(path, geo.Ps.x, geo.Ps.y, geo.r, geo.r, 0, large_arc , sweep, geo.Pe.x, geo.Pe.y)
           lastPos = geo.Pe
+
+    def do_point(self):
+        x = float(self.readgroup(10))
+        y = float(self.readgroup(20))
+        if self.metricflag == 0:
+            x = x*25.4
+            y = y*25.4
+        self.black_boundarys.append([[x,y],[x,y]])
 
     def complain_invalid(self):
         print "Invalid element '" + self.cmd + "' on line", self.linecount

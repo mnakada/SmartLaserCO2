@@ -125,7 +125,7 @@ $(document).ready(function(){
       var y_phy = y*app_settings.to_physical_scale + app_settings.table_offset[1];
       var gcode = 'G10 L2 P1 X'+ x_phy.toFixed(app_settings.num_digits) + 
                   ' Y' + y_phy.toFixed(app_settings.num_digits) + '\nG55\n';
-      send_gcode(gcode, "Offset set.", false);
+      send_gcode(gcode, "原点を移動", false);
       $(this).css('border', '1px dashed #aaaaaa');
       $("#offset_area").css('border', '1px dashed #ff0000');
     }

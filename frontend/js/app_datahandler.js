@@ -7,13 +7,28 @@
 
 DataHandler = {
 
+  nums : [
+    [[[1,0.17],[0.67,0],[0.33,0.17],[0.08,0.81],[0,1.5],[0.08,2.19],[0.33,2.83],[0.67,3],[1,2.83],[1.25,2.19],[1.33,1.5],[1.25,0.81],[1,0.17]]],
+    [[[0,0.67],[0.67,0],[0.67,3]]],
+    [[[0.09,0.33],[0,0.5]],[[0.09,0.33],[0.49,0.02],[1,0.09],[1.31,0.49],[1.24,1]],[[1.24,1],[0,3],[1.33,3]]],
+    [[[0.67,0],[1.14,0.2],[1.33,0.67],[1.14,1.14],[0.67,1.33]],[[0.67,1.33],[0.33,1.33]],[[0.67,1.33],[1.14,1.53],[1.33,2]],[[1.33,2],[1.33,2.33]],[[1.33,2.33],[1.14,2.8],[0.67,3]],[[0.67,3],[0,3]],[[0,0],[0.67,0]]],
+    [[[0.67,0],[0,2.33],[1.67,2.33]],[[1.17,3],[1.17,1.67]]],
+    [[[1.33,0],[0,0],[0,1.33],[0.67,1.33]],[[0.67,1.33],[1.14,1.53],[1.33,2]],[[1.33,2],[1.33,2.33]],[[1.33,2.33],[1.14,2.8],[0.67,3]],[[0.67,3],[0,3]]],
+    [[[1,0],[0.28,0.5],[0,1.33]],[[0,1.33],[0.67,1.33]],[[0.67,1.33],[1.14,1.53],[1.33,2]],[[1.33,2],[1.33,2.33]],[[1.33,2.33],[1.14,2.8],[0.67,3],[0.2,2.8],[0,2.33]],[[0,2.33],[0,1.33]]],
+    [[[0,0.33],[0,0],[1.33,0],[0.67,3]]],
+    [[[0.67,1.33],[1.14,1.14],[1.33,0.67],[1.14,0.2],[0.67,0],[0.2,0.2],[0,0.67],[0.2,1.14],[0.67,1.33]],[[1.33,2.33],[1.14,1.53],[0.67,1.33],[0.2,1.53],[0,2],[0.2,2.8],[0.67,3],[1.14,2.8],[1.33,2.33]]],
+    [[[1.33,0.67],[1.14,0.2],[0.67,0],[0.2,0.2],[0,0.67]],[[0,0.67],[0,1]],[[0,1],[0.2,1.47],[0.67,1.67]],[[0.67,1.67],[1.33,1.67]],[[1.33,1.67],[1.33,0.67]],[[1.33,1.67],[1.05,2.5],[0.33,3]]],
+    [[[1.33,0],[0,3]]]
+  ],
+  numsText : '0123456789/',
+
   paths_by_color : {},
 // I:Raster Start
   rasters_by_color : {},
 // I:Raster End
   passes : [],
   stats_by_color : {},
-
+  date : {},
 
   clear : function() {
     this.paths_by_color = {};
@@ -31,6 +46,31 @@ DataHandler = {
 // C:Raster End
   },
 
+  addChar : function(text, x, y, c) {
+
+    var i = this.numsText.indexOf(c);
+    for(var entity of this.nums[i]) {
+      var newPath = [];
+      for(var path of entity) {
+        newPath.push([parseFloat(path[0] + x), parseFloat(path[1] + y)]);
+      }
+      text.push(newPath);
+    }
+  },
+
+  setDateStamp : function(x, y) {
+
+    var d = new Date();
+    var s = d.getFullYear().toString() + '/' +
+            ('0' + (d.getMonth() + 1).toString()).slice(-2) + '/' +
+            ('0' + d.getDate().toString()).slice(-2);
+    var text = [];
+    for(var c of s) {
+      this.addChar(text, x, y, c);
+      x += 2;
+    }
+    return text;
+  },
  
   
 
@@ -76,7 +116,8 @@ DataHandler = {
   setByJson : function(strdata) {
     // read internal format
     // {'passes':{'colors':['#000000',..], 'feedrate':450, 'intensity':100},
-    //  'paths_by_color':{'#000000':[[[x,y],[x,y], ..],[], ..], '#ffffff':[..]}
+    //  'paths_by_color':{'#000000':[[[x,y],[x,y], ..],[], ..], '#ffffff':[..]},
+    //  'date':{'color':'#000000', x:0, y:0}
     // }
     this.clear();
     var data = JSON.parse(strdata);
@@ -85,10 +126,17 @@ DataHandler = {
 // I:Raster Start
     this.rasters_by_color = data['rasters_by_color'];
 // I:Raster End
+    this.date = data['date'];
+    
     if ('stats_by_color' in data) {
       this.stats_by_color = data['stats_by_color'];
     } else {
       this.calculateBasicStats();
+    }
+
+    if(this.date) {
+      var text = this.setDateStamp(this.date.x, this.date.y);
+      Array.prototype.push.apply(this.paths_by_color[this.date.color], text);
     }
   },
 
@@ -156,8 +204,10 @@ DataHandler = {
       var colors = pass['colors'];
       var feedrate = this.mapConstrainFeedrate(pass['feedrate']);
       var intensity = this.mapConstrainIntesity(pass['intensity']);
+      var counts = parseInt(pass['counts']);
       glist.push("G1F"+feedrate+"\nS"+intensity+"\n");
       for (var c=0; c<colors.length; c++) {
+        for(var l = 0; l < counts; l++) {
           var color = colors[c];
   // I:Raster Start
           // Rasters
@@ -282,6 +332,7 @@ DataHandler = {
           }
         }
       }
+    }
     // footer
     glist.push("M81\nS0\nG0X0Y0F"+app_settings.max_seek_speed+"\n");
     // alert(JSON.stringify(glist.join('')))
@@ -448,7 +499,7 @@ DataHandler = {
           var passes_to_create = pass - this.passes.length
           if (passes_to_create >= 1) {
             for (var k=0; k<passes_to_create; k++) {
-              this.passes.push({'colors':[], 'feedrate':1200, 'intensity':10})
+              this.passes.push({'colors':[], 'feedrate':1200, 'intensity':10, 'counts':1})
             }
           }
           pass = pass-1;  // convert to zero-indexed
@@ -634,9 +685,13 @@ DataHandler = {
 
   getJobPathLength : function() {
     var total_length = 0;
-    for (var color in this.getPassesColors()) {
-      stat = this.stats_by_color[color];
-      total_length += stat['length'];
+    for(var i in this.passes) {
+      var colors = this.passes[i].colors;
+      var counts = this.passes[i].counts;
+      for(var color in colors) {
+        var stat = this.stats_by_color[colors[color]];
+        total_length += stat['length'] * counts;
+      }
     }
     return total_length;
   },
@@ -651,6 +706,11 @@ DataHandler = {
     return total_bbox;
   },
 
+  getJobPathLengthByColor : function(color) {
+
+    var stat = this.stats_by_color[color];
+    return stat['length'];
+  },
 
   // path optimizations /////////////////////////
 

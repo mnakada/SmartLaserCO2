@@ -1,7 +1,7 @@
 
 
 var minNumPassWidgets = 3;
-var maxNumPassWidgets = 32;
+var maxNumPassWidgets = 110;
 var preview_canvas_obj = null;
 
 
@@ -234,6 +234,10 @@ function addPasses(num) {
                       '" title="intensity 0-100%" style="width:26px;" data-delay="500">' +
                     '<span class="add-on" style="margin-left:-5px;">%</span>' +
                   '</div>' +
+                  '<div class="input-append" style="margin-left:6px">' +
+                    '<input class="counts" type="textfield" value="1" style="width:26px;" data-delay="500">' +
+                    '<span class="add-on" style="margin-left:-5px;">回</span>' +
+                  '</div>' +
                   '<span class="colorbtns" style="margin-left:6px">'+buttons+'</span>' +
                 '</div>' +
               '</div>';
@@ -250,6 +254,9 @@ function addPasses(num) {
         $(this).addClass('active');
         $(this).addClass('active-strong');
       }
+      refresh_preview(true, true);
+    });
+    pass_elem.find('.counts').change(function(e){
       refresh_preview(true, true);
     });
   }
@@ -274,7 +281,8 @@ function readPassesWidget() {
     if (colors.length > 0) {
       var feedrate = $(this).find('.feedrate').val();
       var intensity = $(this).find('.intensity').val();
-      DataHandler.addPass({'colors':colors, 'feedrate':feedrate, 'intensity':intensity});
+      var counts = $(this).find('.counts').val();
+      DataHandler.addPass({'colors':colors, 'feedrate':feedrate, 'intensity':intensity, 'counts':counts});
     }
   });
   return DataHandler.hasPasses();
@@ -298,6 +306,8 @@ function writePassesWidget() {
         $('#passes > div:nth-child('+num+') .feedrate').val(pass['feedrate']);
         // intensity
         $('#passes > div:nth-child('+num+') .intensity').val(pass['intensity']);
+        // counts
+        $('#passes > div:nth-child('+num+') .counts').val(pass['counts']);
         // colors
         var colors = pass['colors'];
         for (var ii=0; ii<colors.length; ii++) {

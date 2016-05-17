@@ -9,7 +9,7 @@ from serial_manager import SerialManager
 from flash import flash_upload, reset_atmega
 from build import build_firmware
 from filereaders import read_svg, read_dxf, read_ngc
-
+import logging
 
 APPNAME = "SmartLaser"
 VERSION = "1.0.0"
@@ -17,6 +17,7 @@ COMPANY_NAME = "com.nortd.labs"
 SERIAL_PORT = None
 BITSPERSECOND = 57600
 NETWORK_PORT = 4444
+LIBSDIR = None
 HARDWARE = 'x86'  # also: 'beaglebone', 'raspberrypi'
 CONFIG_FILE = "lasaurapp.conf"
 COOKIE_KEY = 'secret_key_jkn23489hsdf'
@@ -51,7 +52,9 @@ def resources_dir():
 
 def storage_dir():
     directory = ""
-    if sys.platform == 'darwin':
+    if LIBSDIR != None:
+        directory = LIBSDIR
+    elif sys.platform == 'darwin':
         # from AppKit import NSSearchPathForDirectoriesInDomains
         # # NSApplicationSupportDirectory = 14
         # # NSUserDomainMask = 1
@@ -128,6 +131,9 @@ def run_with_callback(host, port):
             server.handle_request()
             time.sleep(0.0004)
         except KeyboardInterrupt:
+        except:
+            import traceback
+            traceback.print_exc()
             break
     print "\nShutting down..."
     SerialManager.close()
@@ -335,22 +341,35 @@ def serial_handler(connect):
     elif connect == '0':
         # print 'js is asking to close serial'
         if SerialManager.is_connected():
-            if SerialManager.close(): return "1"
-            else: return ""
-    elif connect == "2":
+            if SerialManager.close(): return '1'
+            else: return ''
+    elif connect == '2':
         # print 'js is asking if serial connected'
-        if SerialManager.is_connected(): return "1"
-        else: return ""
+        if SerialManager.is_connected(): return '1'
+        else: return ''
     else:
         print 'ambigious connect request from js: ' + connect
-        return ""
+        return ''
 
-
+@route('/logging', method='POST')
+def logging_handler():
+    timestamp = request.forms.get('timestamp')
+    feedrate = request.forms.get('feedrate')
+    intensity = request.forms.get('intensity')
+    length = request.forms.get('length')
+    logger.info('processing : ' +feedrate+' '+intensity+' '+length)
 
 @route('/status')
 def get_status():
     status = copy.deepcopy(SerialManager.get_hardware_status())
     status['serial_connected'] = SerialManager.is_connected()
+    if HARDWARE == 'raspberrypi':
+      status['power'] = RPiPowerControl.get_power_status()
+      status['assist_air'] = RPiPowerControl.get_assist_air_status()
+      RPiPowerControl.set_process_status(status['serial_connected'] and not status['ready'])
+    else:
+      status['power'] = 1;
+      status['assist_air'] = 1;
     status['lasaurapp_version'] = VERSION
     return json.dumps(status)
 
@@ -551,6 +570,12 @@ argparser.add_argument('--raspberrypi', dest='raspberrypi', action='store_true',
                     default=False, help='use this for running on Raspberry Pi')
 argparser.add_argument('-m', '--match', dest='match',
                     default=GUESS_PREFIX, help='match serial device with this string')
+argparser.add_argument('--network_port', dest='network_port',
+                    default=4444, help='bind netowrk port (default:4444)')
+argparser.add_argument('--libsdir', dest='libsdir',
+                    default=False, help='libraries direcotry')
+argparser.add_argument('--log', dest='logfile',
+                    default=False, help='logging file')
 args = argparser.parse_args()
 
 
@@ -642,6 +667,19 @@ if args.beaglebone:
 elif args.raspberrypi:
     HARDWARE = 'raspberrypi'
     SERIAL_PORT = "/dev/ttyACM0"
+if args.network_port:
+    NETWORK_PORT = int(args.network_port)
+
+if args.libsdir:
+    LIBSDIR = args.libsdir
+
+if args.logfile:
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(filename=args.logfile)
+    fh.setFormatter(logging.Formatter('%(asctime)s : %(message)s'))
+    logger.addHandler(fh)
+
 
 if args.list_serial_devices:
     SerialManager.list_devices(BITSPERSECOND)

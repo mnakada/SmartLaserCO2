@@ -322,7 +322,24 @@ function writePassesWidget() {
   }
 }
 
+function send_log_message() {
 
+  var msg = {'timestamp': Date()};
+  var passes = DataHandler.getPasses();
+  for (var i in passes) {
+    var pass = passes[i];
+    msg['feedrate'] = 'F'+pass['feedrate'];
+    msg['intensity'] = pass['intensity']+'%';
+    msg['counts'] = pass['counts']+'times';
+    var length = 0;
+    for(var c in pass.colors) {
+      var color = pass.colors[c];
+      length += DataHandler.getJobPathLengthByColor(color);
+    }
+    msg['length'] = (length/1000).toFixed(1)+'m';
+    $.post("/logging", msg);
+  }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -373,6 +390,7 @@ $(document).ready(function(){
           job_bbox[3] <= app_settings.work_area_dimensions[1])
       {
         send_gcode(DataHandler.getGcode(), "データ送信中", true);
+          send_log_message();
       } else {
         $().uxmessage('warning', "作業領域外になります。");
       }

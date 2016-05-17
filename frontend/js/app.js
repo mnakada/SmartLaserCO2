@@ -20,25 +20,25 @@ var progress_not_yet_done_flag = false;
     if (kind == 'notice') {
       $('#log_content').prepend('<div class="log_item log_notice well" style="display:none">' + text + '</div>');
       $('#log_content').children('div').first().show('blind');
-      if ($("#log_content").is(':hidden')) {
+      if ($('#log_content').is(':hidden')) {
         $().toastmessage('showNoticeToast', text);
       }
     } else if (kind == 'success') {
       $('#log_content').prepend('<div class="log_item log_success well" style="display:none">' + text + '</div>');
       $('#log_content').children('div').first().show('blind');
-      if ($("#log_content").is(':hidden')) {
+      if ($('#log_content').is(':hidden')) {
         $().toastmessage('showSuccessToast', text);   
       }
     } else if (kind == 'warning') {
       $('#log_content').prepend('<div class="log_item log_warning well" style="display:none">' + text + '</div>');
       $('#log_content').children('div').first().show('blind');
-      if ($("#log_content").is(':hidden')) {
+      if ($('#log_content').is(':hidden')) {
         $().toastmessage('showWarningToast', text);   
       }
     } else if (kind == 'error') {
       $('#log_content').prepend('<div class="log_item log_error well" style="display:none">' + text + '</div>');
       $('#log_content').children('div').first().show('blind');
-      if ($("#log_content").is(':hidden')) {
+      if ($('#log_content').is(':hidden')) {
         $().toastmessage('showErrorToast', text);   
       }
     }
@@ -65,9 +65,9 @@ function send_gcode(gcode, success_msg, progress) {
           $().uxmessage('success', success_msg);
           if (progress = true) {
             // show progress bar, register live updates
-            if ($("#progressbar").children().first().width() == 0) {
-              $("#progressbar").children().first().width('5%');
-              $("#progressbar").show();
+            if ($('#progressbar').children().first().width() == 0) {
+              $('#progressbar').children().first().width('5%');
+              $('#progressbar').show();
               progress_not_yet_done_flag = true;
               setTimeout(update_progress, 2000);
             }
@@ -93,17 +93,17 @@ function update_progress() {
   $.get('/queue_pct_done', function(data) {
     if (data.length > 0) {
       var pct = parseInt(data);
-      $("#progressbar").children().first().width(pct+'%');
+      $('#progressbar').children().first().width(pct+'%');
       setTimeout(update_progress, 2000);         
     } else {
       if (progress_not_yet_done_flag) {
-        $("#progressbar").children().first().width('100%');
+        $('#progressbar').children().first().width('100%');
         $().uxmessage('notice', "完了");
         progress_not_yet_done_flag = false;
         setTimeout(update_progress, 2000);
       } else {
         $('#progressbar').hide();
-        $("#progressbar").children().first().width(0); 
+        $('#progressbar').children().first().width(0); 
       }
     }
   });

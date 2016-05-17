@@ -129,8 +129,13 @@ def run_with_callback(host, port):
         try:
             SerialManager.send_queue_as_ready()
             server.handle_request()
+            if HARDWARE == 'raspberrypi':
+              RPiPowerControl.interval_check()
             time.sleep(0.0004)
         except KeyboardInterrupt:
+            if HARDWARE == 'raspberrypi':
+              RPiPowerControl.gpio_cleanup()
+            break
         except:
             import traceback
             traceback.print_exc()
@@ -390,7 +395,25 @@ def set_pause(flag):
         else:
             return '0'
 
+@route('/assist_air/:flag')
+def set_assist_air(flag):
+    if HARDWARE == 'raspberrypi':
+        RPiPowerControl.set_assist_air(flag)
+        if flag:
+          logger.info('assist air on')
+        else:
+          logger.info('assist air off')
+    return flag
 
+@route('/power/:flag')
+def set_power(flag):
+    if HARDWARE == 'raspberrypi':
+        RPiPowerControl.set_power(flag)
+        if flag:
+          logger.info('power on')
+        else:
+          logger.info('power off')
+    return flag
 
 @route('/flash_firmware')
 @route('/flash_firmware/:firmware_file')
@@ -666,7 +689,8 @@ if args.beaglebone:
 
 elif args.raspberrypi:
     HARDWARE = 'raspberrypi'
-    SERIAL_PORT = "/dev/ttyACM0"
+    from RPiPowerControl import RPiPowerControl
+
 if args.network_port:
     NETWORK_PORT = int(args.network_port)
 

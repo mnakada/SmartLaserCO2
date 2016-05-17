@@ -1,9 +1,8 @@
 
-var hardware_ready_state = false;
 var firmware_version_reported = false;
 var lasaurapp_version_reported = false;
 var progress_not_yet_done_flag = false;
-
+var hardware_status = {};
 
 (function($){
   $.fn.uxmessage = function(kind, text, max_length) {
@@ -186,255 +185,359 @@ $(document).ready(function(){
 
 
   //////// serial connect and pause button ////////
-  var connect_btn_state = false;
-  var connect_btn_in_hover = false;
   var pause_btn_state = false;
+  var assist_btn_state = true;
+  var power_btn_state = 0; // 0:power-off/1:disconnect/2:power-on/3:processing
+  var power_btn_in_hover = false;
+  var limit_count = 0;
+  function apply_status() {
 
-  function connect_btn_set_state(is_connected) {
-    if (is_connected) {
-      connect_btn_state = true
-      if (!connect_btn_in_hover) {
-        $("#connect_btn").html("接続");
-      }
-      $("#connect_btn").removeClass("btn-danger");
-      $("#connect_btn").removeClass("btn-warning");
-      $("#connect_btn").addClass("btn-success");      
-    } else {
-      connect_btn_state = false
-      if (!connect_btn_in_hover) {
-        $("#connect_btn").html("切断");
-      }   
-      $("#connect_btn").removeClass("btn-danger");
-      $("#connect_btn").removeClass("btn-success");
-      $("#connect_btn").addClass("btn-warning");     
-    }
-  }
+    apply_power_btn_status();
+    apply_air_btn_status();
+    apply_pause_btn_status()
+    apply_door_status();
+    apply_ctrl_btn_active();
+  };
+  
+  function apply_power_btn_status() {
 
-  // get hardware status
-  function poll_hardware_status() {
-    $.getJSON('/status', function(data) {
-      // pause status
-      if (data.paused) {
-        pause_btn_state = true;
-        $("#pause_btn").addClass("btn-primary");
-        $("#pause_btn").html('<i class="icon-play"></i>');
-      } else {
-        pause_btn_state = false;
-        $("#pause_btn").removeClass("btn-warning");
-        $("#pause_btn").removeClass("btn-primary");
-        $("#pause_btn").html('<i class="icon-pause"></i>');
-      }
-      // serial connected
-      if (data.serial_connected) {
-        connect_btn_set_state(true);
-      } else {
-        connect_btn_set_state(false);
-      }
-
-      // ready state
-      if (data.ready) {
-        hardware_ready_state = true;
-        $("#connect_btn").html("Ready");
-      } else {
-        if (data.serial_connected) {
-          $("#connect_btn").html("Busy");
-        }
-        hardware_ready_state = false;
-      }
-
-      // door, chiller, power, limit, buffer
-      if (data.serial_connected) {
-        if (data.door_open) {
-          $('#door_status_btn').removeClass('btn-success')
-          $('#door_status_btn').addClass('btn-warning') 
-          // $().uxmessage('warning', "Door is open!");
+    if(hardware_status.power) {
+      if(hardware_status.serial_connected) {
+        if(hardware_status.ready) {
+          if(power_btn_in_hover) {
+            $('#power_btn').html("電源Off");
+          } else {
+            $('#power_btn').html("電源On");
+          } 
+          $('#power_btn').removeClass('btn-warning');
+          $('#power_btn').removeClass('btn-inverse');
+          $('#power_btn').addClass('btn-success');
+          $('#power_btn').removeClass('disabled');
+          power_btn_state = 2;
         } else {
-          $('#door_status_btn').removeClass('btn-warning')
-          $('#door_status_btn').addClass('btn-success')         
+          $('#power_btn').html("動作中");
+          $('#power_btn').removeClass('btn-success');
+          $('#power_btn').removeClass('btn-inverse');
+          $('#power_btn').addClass('btn-warning');
+          $('#power_btn').addClass('disabled');
+          power_btn_state = 3;
         }
-        if (data.power_off) {
-          $().uxmessage('error', "Power is off!"); 
-          $().uxmessage('notice', "Turn on Lasersaur power then run homing cycle to reset.");          
+      } else {
+        if(power_btn_in_hover) {
+          $('#power_btn').html("電源Off");
+        } else {
+          $('#power_btn').html("未接続");
         }
-        if (data.limit_hit) {
+        $('#power_btn').removeClass('btn-warning');
+        $('#power_btn').removeClass('btn-success');
+        $('#power_btn').addClass('btn-inverse');
+        $('#power_btn').removeClass('disabled');
+        power_btn_state = 1;
+        firmware_version_reported = false;
+      }
+    } else {
+      $('#power_btn').removeClass('btn-success');
+      $('#power_btn').removeClass('btn-warning');
+      $('#power_btn').removeClass('btn-inverse');
+      if(app_settings.disable_power_on == true) {
+        $('#power_btn').addClass('disabled');
+        $('#power_btn').html("電源Off");
+      } else {
+        if(power_btn_in_hover) {
+          $('#power_btn').html("電源On");
+        } else {
+          $('#power_btn').html("電源Off");
+        }
+        $('#power_btn').removeClass('disabled');
+      }
+      power_btn_state = 0;
+      firmware_version_reported = false;
+    }
+  };
+
+  function apply_air_btn_status() {
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if (hardware_status.assist_air) {
+        $('#air_btn').removeClass('btn-warning');
+        $('#air_btn').html('<i class="icon-flag"></i>');
+        assist_btn_state = true;
+      } else {
+        $('#air_btn').removeClass('disabled');
+        $('#air_btn').addClass('btn-warning');
+        $('#air_btn').html('<i class="icon-fire"></i>');
+        assist_btn_state = false;
+      }
+    } else {
+      $('#air_btn').removeClass('btn-warning');
+      $('#air_btn').addClass('disabled');
+      $('#air_btn').html('<i class="icon-flag"></i>');
+      assist_btn_state = true;
+    }
+  };
+
+  function apply_pause_btn_status() {
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if (hardware_status.paused) {
+        $('#pause_btn').addClass('btn-info');
+        $('#pause_btn').html('<i class="icon-play"></i>');
+        pause_btn_state = true;
+      } else {
+        $('#pause_btn').removeClass('btn-info');
+        $('#pause_btn').html('<i class="icon-pause"></i>');
+        pause_btn_state = false;
+      }
+    } else {
+      $('#pause_btn').removeClass('btn-info');
+      $('#pause_btn').html('<i class="icon-pause"></i>');
+      pause_btn_state = false;
+    }
+  };
+
+  function apply_door_status() {
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if (hardware_status.door_open) {
+       $('#door_status_btn').removeClass('btn-success');
+        $('#door_status_btn').addClass('btn-warning');
+      } else {
+       $('#door_status_btn').removeClass('btn-warning');
+       $('#door_status_btn').addClass('btn-success');
+      }
+    } else {
+      $('#door_status_btn').removeClass('btn-success');
+      $('#door_status_btn').removeClass('btn-warning');
+    }
+  };
+  
+  function apply_ctrl_btn_active() {
+
+    if (hardware_status.power && hardware_status.serial_connected && hardware_status.ready) {
+      $('#go_to_origin').removeClass('disabled');
+      $('#homing_cycle').removeClass('disabled');
+      $('#job_submit').removeClass('disabled');
+      $('#job_bbox_submit').removeClass('disabled');
+      $('#location_set_btn').removeClass('disabled');
+      $('#origin_set_btn').removeClass('disabled');
+      $('#jog_up_btn').removeClass('disabled');
+      $('#jog_left_btn').removeClass('disabled');
+      $('#jog_right_btn').removeClass('disabled');
+      $('#jog_down_btn').removeClass('disabled');
+    } else {
+      $('#go_to_origin').addClass('disabled');
+      $('#homing_cycle').addClass('disabled');
+      $('#job_submit').addClass('disabled');
+      $('#job_bbox_submit').addClass('disabled');
+      $('#location_set_btn').addClass('disabled');
+      $('#origin_set_btn').addClass('disabled');
+      $('#jog_up_btn').addClass('disabled');
+      $('#jog_left_btn').addClass('disabled');
+      $('#jog_right_btn').addClass('disabled');
+      $('#jog_down_btn').addClass('disabled');
+    }
+    if (hardware_status.power && hardware_status.serial_connected) {
+      $('#pause_btn').removeClass('disabled');
+      $('#cancel_btn').removeClass('disabled');
+      $('#air_btn').removeClass('disabled');
+    } else {
+      $('#pause_btn').addClass('disabled');
+      $('#cancel_btn').addClass('disabled');
+      $('#air_btn').addClass('disabled');
+    }
+  };
+  
+  function apply_location_field() {
+  
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if (hardware_status.x && hardware_status.y) {
+        // only update if not manually entering at the same time
+        if (!$('#x_location_field').is(":focus") &&
+            !$('#y_location_field').is(":focus") &&
+            !$('#location_set_btn').is(":focus") &&
+            !$('#origin_set_btn').is(":focus"))
+        {
+          var x = parseFloat(hardware_status.x).toFixed(2) - app_settings.table_offset[0];
+          $('#x_location_field').val(x.toFixed(2));
+          $('#x_location_field').animate({
+            opacity: 0.5
+          }, 100, function() {
+            $('#x_location_field').animate({
+              opacity: 1.0
+            }, 600, function() {});
+          });
+          var y = parseFloat(hardware_status.y).toFixed(2) - app_settings.table_offset[1];
+          $('#y_location_field').val(y.toFixed(2));
+          $('#y_location_field').animate({
+            opacity: 0.5
+          }, 100, function() {
+            $('#y_location_field').animate({
+              opacity: 1.0
+            }, 600, function() {});
+          });
+        }
+      }
+    }
+  };
+
+  function error_and_version_check() {
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if (hardware_status.limit_hit) {
+        if (limit_count > 5) {
           $().uxmessage('error', "リミットになりました！!");
           $().uxmessage('notice', "ストップモードをリセットするために原点復帰を実行してください。");
-        }
-        if (data.buffer_overflow) {
-          $().uxmessage('error', "Rxバッファーオーバーフロー!");
-          $().uxmessage('notice', "Please report this to the author of this software.");
-        }        
-        if (data.transmission_error) {
-          $().uxmessage('error', "送信エラー!");
-          $().uxmessage('notice', "If this happens a lot tell the author of this software.");
-        }
-        if (data.x && data.y) {
-          // only update if not manually entering at the same time
-          if (!$('#x_location_field').is(":focus") &&
-              !$('#y_location_field').is(":focus") &&
-              !$('#location_set_btn').is(":focus") &&
-              !$('#origin_set_btn').is(":focus"))
-          {
-            var x = parseFloat(data.x).toFixed(2) - app_settings.table_offset[0];
-            $('#x_location_field').val(x.toFixed(2));
-            $('#x_location_field').animate({
-              opacity: 0.5
-            }, 100, function() {
-              $('#x_location_field').animate({
-                opacity: 1.0
-              }, 600, function() {});
-            });
-            var y = parseFloat(data.y).toFixed(2) - app_settings.table_offset[1];
-            $('#y_location_field').val(y.toFixed(2));
-            $('#y_location_field').animate({
-              opacity: 0.5
-            }, 100, function() {
-              $('#y_location_field').animate({
-                opacity: 1.0
-              }, 600, function() {});
-            });
-          }
-        }
-        if (data.firmware_version && !firmware_version_reported) {
-          $().uxmessage('notice', "ファームウェア v" + data.firmware_version);
-          $('#firmware_version').html(data.firmware_version);
-          firmware_version_reported = true;
+          limit_count = 0;
+        } else {
+          limit_count++;
         }
       }
-      if (data.lasaurapp_version && !lasaurapp_version_reported) {
-        $().uxmessage('notice', "SmartLaser v" + data.lasaurapp_version);
-        $('#lasaurapp_version').html(data.lasaurapp_version);
-        lasaurapp_version_reported = true;
+      if (hardware_status.buffer_overflow) {
+        $().uxmessage('error', "Rxバッファーオーバーフロー!");
       }
-      // schedule next hardware poll
-      setTimeout(function() {poll_hardware_status()}, 1000);
+      if (hardware_status.transmission_error) {
+        $().uxmessage('error', "送信エラー!");
+      }
+      if (hardware_status.firmware_version && !firmware_version_reported) {
+        $().uxmessage('notice', "ファームウェア v" + hardware_status.firmware_version);
+        $('#firmware_version').html(hardware_status.firmware_version);
+        firmware_version_reported = true;
+      }
+    }
+    if (hardware_status.lasaurapp_version && !lasaurapp_version_reported) {
+      $().uxmessage('notice', "SmartLaser v" + hardware_status.lasaurapp_version);
+      $('#lasaurapp_version').html(hardware_status.lasaurapp_version);
+      lasaurapp_version_reported = true;
+    }
+  };
+
+  function evaluate_data(d) {
+    if((d == 'true') || (d == 'True') || (d == '1'))  return true;
+    if((d == 'false') || (d == 'False') || (d == '0'))  return false;
+    return d;
+  }
+
+  function poll_hardware_status() {
+  
+    $.getJSON('/status', function(data) {
+      for(i in data) {
+        hardware_status[i] = evaluate_data(data[i]);
+      }
+      apply_status();
+      apply_location_field();
+      error_and_version_check();
+      setTimeout(function() {poll_hardware_status()}, 500);
     }).error(function() {
-      // lost connection to server
-      connect_btn_set_state(false);
-      // schedule next hardware poll
       setTimeout(function() {poll_hardware_status()}, 5000);
     });
   }
-  // kick off hardware polling
   poll_hardware_status();
 
-  connect_btn_width = $("#connect_btn").innerWidth();
-  $("#connect_btn").width(connect_btn_width);
-  $("#connect_btn").click(function(e){  
-    if (connect_btn_state == true) {
-      $.get('/serial/0', function(data) {
-        if (data != "") {
-          connect_btn_set_state(false);   
-        } else {
-          // was already disconnected
-          connect_btn_set_state(false);
-        }
-        $("#connect_btn").html("切断");
+
+  $('#power_btn').click(function(e){
+    if((power_btn_state == 1) || (power_btn_state == 2)) {
+      power_btn_state = 0;
+      $.get('/power/' + power_btn_state, function(data) {
+        apply_status();
       });
-    } else {
-      $("#connect_btn").html('接続中');
-      $.get('/serial/1', function(data) {
-        if (data != "") {
-          connect_btn_set_state(true);
-          $("#connect_btn").html("接続");      
-        } else {
-          // failed to connect
-          connect_btn_set_state(false);
-          $("#connect_btn").removeClass("btn-warning");
-          $("#connect_btn").addClass("btn-danger");  
-        }   
-      });
-    } 
-    e.preventDefault();   
-  }); 
-  $("#connect_btn").hover(
+    } else if((power_btn_state == 0) && (app_settings.disable_power_on != true)) {
+      power_btn_state = 2;
+      $.get('/power/' + power_btn_state, function(data) {
+        apply_status();
+     });
+    }
+    e.preventDefault();
+  });
+
+  $('#power_btn').hover(
+    function() {
+      power_btn_in_hover = true;
+      apply_status();
+    },
     function () {
-      connect_btn_in_hover = true;
-      if (connect_btn_state) {
-        $(this).html("切断");
-      } else {
-        $(this).html("接続");
-      }
-      $(this).width(connect_btn_width);
-    }, 
-    function () {
-      connect_btn_in_hover = false;
-      if (connect_btn_state) {
-        $(this).html("接続");
-      } else {
-        $(this).html("切断");
-      }
-      $(this).width(connect_btn_width);      
+      power_btn_in_hover = false;
+      apply_status();
     }
   );
 
-  $("#pause_btn").click(function(e){
-    if (pause_btn_state == true) {  // unpause
-      $.get('/pause/0', function(data) {
-        if (data == '0') {
-          pause_btn_state = false;
-          $("#pause_btn").removeClass('btn-primary');
-          $("#pause_btn").removeClass('btn-warning');
-          $("#pause_btn").html('<i class="icon-pause"></i>');
-          $().uxmessage('notice', "接続中");
-        }
-      });
-    } else {  // pause
-      $("#pause_btn").addClass('btn-warning');
-      $.get('/pause/1', function(data) {
-        if (data == "1") {
+  $('#pause_btn').click(function(e){
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if (pause_btn_state == true) {  // unpause
+        $.get('/pause/0', function(data) {
+          pause_btn_state = evaluate_data(data);
+          apply_status();
+        });
+      } else {  // pause
+        $.get('/pause/1', function(data) {
           pause_btn_state = true;
-          $("#pause_btn").removeClass("btn-warning");
-          $("#pause_btn").addClass('btn-primary');
-          $("#pause_btn").html('<i class="icon-play"></i>');
           $().uxmessage('notice', "一時停止中");
-        } else if (data == '0') {
-          $("#pause_btn").removeClass("btn-warning");
-          $("#pause_btn").removeClass("btn-primary");
-          $().uxmessage('notice', "動作中");
-        }   
-      });
+          apply_status();
+        });
+      }
     }
     e.preventDefault();   
   }); 
-  //\\\\\\ serial connect and pause button \\\\\\\\
+
+  $('#air_btn').click(function(e) {
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if (assist_btn_state == true) {  // assist off
+        $.get('/assist_air/0', function(data) {
+          assist_btn_state = false;
+          apply_status();
+        });
+      } else {  // assit on
+        $.get('/assist_air/1', function(data) {
+          assist_btn_state = true;
+          apply_status();
+        });
+      }
+    }
+  });
   
-  
-  $("#cancel_btn").click(function(e){
-    var gcode = '!\n'  // ! is enter stop state char
-    send_gcode(gcode, "停止中 ...", false);
-    var delayedresume = setTimeout(function() {
-      var gcode = '~\nG90\nM81\nG0X0Y0F'+app_settings.max_seek_speed+'\n'  // ~ is resume char
-      send_gcode(gcode, "リセット中 ...", false);
-    }, 1000);
-    pause_btn_state = false;
-    $("#pause_btn").removeClass("btn-info");
-    $("#pause_btn").html('<i class="icon-pause"></i>');
+  $('#cancel_btn').click(function(e){
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      var gcode = '!\n'  // ! is enter stop state char
+      send_gcode(gcode, "停止中 ...", false);
+      var delayedresume = setTimeout(function() {
+        var gcode = '~\nG90\nM81\nG0X0Y0F'+app_settings.max_seek_speed+'\n'  // ~ is resume char
+        send_gcode(gcode, "リセット中 ...", false);
+      }, 1000);
+      pause_btn_state = false;
+    }
+    apply_status();
     e.preventDefault();
   });
   
-  $("#homing_cycle").click(function(e){
-    var gcode = '!\n'  // ! is enter stop state char
-    send_gcode(gcode, "リセット中 ...", false);
-    var delayedresume = setTimeout(function() {
-      var gcode = '~\nG30\n'  // ~ is resume char
-      send_gcode(gcode, "原点復帰中 ...", false);
-    }, 1000);
-    pause_btn_state = false;
-    $("#pause_btn").removeClass("btn-info");
-    $("#pause_btn").html('<i class="icon-pause"></i>');
+  $('#homing_cycle').click(function(e){
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      var gcode = '!\n'  // ! is enter stop state char
+      send_gcode(gcode, "リセット中 ...", false);
+      var delayedresume = setTimeout(function() {
+          var gcode = '~\nG90\nG30\n'  // ~ is resume char
+          send_gcode(gcode, "原点復帰中 ...", false);
+      }, 1000);
+      pause_btn_state = false;
+    }
+    apply_status();
     e.preventDefault();
   });
 
-  $("#go_to_origin").click(function(e){
-    if(e.shiftKey) {
-      // also reset offset
-      reset_offset();
+  $('#go_to_origin').click(function(e){
+
+    if (hardware_status.power && hardware_status.serial_connected) {
+      if(e.shiftKey) {
+        // also reset offset
+        reset_offset();
+      }
+      var gcode;
+      gcode = 'G90\nG0X0Y0F'+app_settings.max_seek_speed+'\n'
+      // $().uxmessage('notice', gcode);  
+      send_gcode(gcode, "原点へ移動中 ...", false);
     }
-    var gcode;
-    gcode = 'G90\nG0X0Y0F'+app_settings.max_seek_speed+'\n'
-    // $().uxmessage('notice', gcode);  
-    send_gcode(gcode, "原点へ移動中 ...", false);
     e.preventDefault();   
   });  
 

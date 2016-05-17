@@ -142,19 +142,21 @@ $(document).ready(function(){
   
 
   $("#cutting_area").click(function(e) {
-    var offset = $(this).offset();
-    var x = (e.pageX - offset.left);
-    var y = (e.pageY - offset.top);
+    if (hardware_status.power && hardware_status.serial_connected && hardware_status.ready) {
+      var offset = $(this).offset();
+      var x = (e.pageX - offset.left);
+      var y = (e.pageY - offset.top);
 
-    if(e.shiftKey) {
-      assemble_and_set_offset(x,y);
-    } else if (!gcode_coordinate_offset) {  
-      assemble_and_send_gcode(x,y);
-    } else {
-      var pos = $("#offset_area").position()
-      if ((x < pos.left) || (y < pos.top)) {       
-        //// reset offset
-        reset_offset();
+      if(e.shiftKey) {
+        assemble_and_set_offset(x,y);
+      } else if (!gcode_coordinate_offset) {  
+        assemble_and_send_gcode(x,y);
+      } else {
+        var pos = $("#offset_area").position()
+        if ((x < pos.left) || (y < pos.top)) {       
+          //// reset offset
+          reset_offset();
+        }
       }
     }
     return false;
@@ -204,12 +206,14 @@ $(document).ready(function(){
   });
   
   $("#offset_area").click(function(e) { 
-    if(!e.shiftKey) {
-      var offset = $(this).offset();
-      var x = (e.pageX - offset.left);
-      var y = (e.pageY - offset.top);     
-      assemble_and_send_gcode(x,y);
-      return false
+    if (hardware_status.power && hardware_status.serial_connected && hardware_status.ready) {
+      if(!e.shiftKey) {
+        var offset = $(this).offset();
+        var x = (e.pageX - offset.left);
+        var y = (e.pageY - offset.top);     
+        assemble_and_send_gcode(x,y);
+        return false
+      }
     }
   });
 
@@ -269,139 +273,133 @@ $(document).ready(function(){
     $("#feedrate_btn_medium").removeClass('active');
     $("#feedrate_btn_fast").removeClass('active');    
   }
-  
 
   /// jog buttons ///////////////////////////////
 
+  function move_cursor(x, y, str) {
+    if ($('#tab_mover').is(":visible") && hardware_status.power && hardware_status.serial_connected && hardware_status.ready) {
+      var gcode = 'G91\nG0X' + x.toFixed(0) + 'Y' + y.toFixed(0) + 'F' + app_settings.max_seek_speed+'\nG90\n';
+      send_gcode(gcode, str, false);
+    }
+  };
+
   $("#jog_up_btn").click(function(e) {
-    var gcode = 'G91\nG0Y-10F6000\nG90\n';
-    send_gcode(gcode, "上に移動 ...", false);
-  });   
+    if(e.shiftKey) {
+      move_cursor(0, -50, "上に移動 ...");
+    } else if(e.altKey) {
+      move_cursor(0, -2, "上に移動 ...");
+    } else {
+      move_cursor(0, -10, "上に移動 ...");
+    }
+  });
   $("#jog_left_btn").click(function(e) {
-    var gcode = 'G91\nG0X-10F6000\nG90\n';
-    send_gcode(gcode, "左に移動 ...", false);
-  });   
+    if(e.shiftKey) {
+      move_cursor(-50, 0, "左に移動 ...");
+    } else if(e.altKey) {
+      move_cursor(-2, 0, "左に移動 ...");
+    } else {
+      move_cursor(-10, 0, "左に移動 ...");
+    }
+  });
   $("#jog_right_btn").click(function(e) {
-    var gcode = 'G91\nG0X10F6000\nG90\n';
-    send_gcode(gcode, "右に移動 ...", false);
+    if(e.shiftKey) {
+      move_cursor(50, 0, "右に移動 ...");
+    } else if(e.altKey) {
+      move_cursor(2, 0, "右に移動 ...");
+    } else {
+      move_cursor(10, 0, "右に移動 ...");
+    }
   });
   $("#jog_down_btn").click(function(e) {
-    var gcode = 'G91\nG0Y10F6000\nG90\n';
-    send_gcode(gcode, "下に移動 ...", false);
+    if(e.shiftKey) {
+      move_cursor(0, 50, "下に移動 ...");
+    } else if(e.altKey) {
+      move_cursor(0, 2, "下に移動 ...");
+    } else {
+      move_cursor(0, 10, "下に移動 ...");
+    }
   });
 
 
   /// jog keys //////////////////////////////////
 
   $(document).on('keydown', null, 'right', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0X10F6000\nG90\n';
-      send_gcode(gcode, "右に移動 ...", false);
-      return false;
-    }
+    move_cursor(10, 0, "右に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'alt+right', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0X2F6000\nG90\n';
-      send_gcode(gcode, "右に移動 ...", false);
-      return false;
-    }
+    move_cursor(2, 0, "右に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'shift+right', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0X50F6000\nG90\n';
-      send_gcode(gcode, "右に移動 ...", false);
-      return false;
-    }
+    move_cursor(50, 0, "右に移動 ...");
+    return false;
   });
 
   $(document).on('keydown', null, 'left', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0X-10F6000\nG90\n';
-      send_gcode(gcode, "左に移動 ...", false);
-      return false;
-    }
+    move_cursor(-10, 0, "左に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'alt+left', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0X-2F6000\nG90\n';
-      send_gcode(gcode, "左に移動 ...", false);
-      return false;
-    }
+    move_cursor(-2, 0, "左に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'shift+left', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0X-50F6000\nG90\n';
-      send_gcode(gcode, "左に移動 ...", false);
-      return false;
-    }
+    move_cursor(-50, 0, "左に移動 ...");
+    return false;
   });
 
   $(document).on('keydown', null, 'up', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0Y-10F6000\nG90\n';
-      send_gcode(gcode, "上に移動 ...", false);
-      return false;
-    }
+    move_cursor(0, -10, "上に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'alt+up', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0Y-2F6000\nG90\n';
-      send_gcode(gcode, "上に移動 ...", false);
-      return false;
-    }
+    move_cursor(0, -2, "上に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'shift+up', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0Y-50F6000\nG90\n';
-      send_gcode(gcode, "上に移動 ...", false);
-      return false;
-    }
+    move_cursor(0, -50, "上に移動 ...");
+    return false;
   });
 
   $(document).on('keydown', null, 'down', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0Y10F6000\nG90\n';
-      send_gcode(gcode, "下に移動 ...", false);
-      return false;
-    }
+    move_cursor(0, 10, "下に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'alt+down', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0Y2F6000\nG90\n';
-      send_gcode(gcode, "下に移動 ...", false);
-      return false;
-    }
+    move_cursor(0, 2, "下に移動 ...");
+    return false;
   });
   $(document).on('keydown', null, 'shift+down', function(e){
-    if ($('#tab_mover').is(":visible")) {
-      var gcode = 'G91\nG0Y50F6000\nG90\n';
-      send_gcode(gcode, "下に移動 ...", false);
-      return false;
-    }
+    move_cursor(0, 50, "下に移動 ...");
+    return false;
   });
-      
+
 
   /// numeral location buttons //////////////////
   $("#location_set_btn").click(function(e) {
-    var x = parseFloat($('#x_location_field').val());
-    var y = parseFloat($('#y_location_field').val());
-    // NaN from parsing '' is ok
-    assemble_and_send_gcode(x, y, true);
+    if (hardware_status.ready) {
+      var x = parseFloat($('#x_location_field').val());
+      var y = parseFloat($('#y_location_field').val());
+      // NaN from parsing '' is ok
+      assemble_and_send_gcode(x, y, true);
+    }
   }); 
 
   $("#origin_set_btn").click(function(e) {
-    var x_str = $('#x_location_field').val();
-    if (x_str == '') {
-      x_str = '0';
+    if (hardware_status.ready) {
+      var x_str = $('#x_location_field').val();
+      if (x_str == '') {
+        x_str = '0';
+      }
+      var x = parseFloat(x_str)*app_settings.to_canvas_scale;
+      var y_str = $('#y_location_field').val();
+      if (y_str == '') {
+        y_str = '0';
+      }
+      var y = parseFloat(y_str)*app_settings.to_canvas_scale;
+      assemble_and_set_offset(x, y);
     }
-    var x = parseFloat(x_str)*app_settings.to_canvas_scale;
-    var y_str = $('#y_location_field').val();
-    if (y_str == '') {
-      y_str = '0';
-    }
-    var y = parseFloat(y_str)*app_settings.to_canvas_scale;
-    assemble_and_set_offset(x, y);
   });  
 
 });  // ready

@@ -52,6 +52,7 @@ class SerialManagerClass:
             'unsupported_statement_error': False,
             'power_off': False,
             'limit_hit': False,
+            'limit_hit_sensors':False,
             'serial_stop_request': False,
             'door_open': False,
             'chiller_off': False,
@@ -377,8 +378,16 @@ class SerialManagerClass:
 
             if 'L' in line:  # Stop: A limit was hit
                 self.status['limit_hit'] = True
+                sensors = []
+                o1 = line.find('L')
+                sensors.append(line[o1 + 1])
+                o2 = line.find('L', o1 + 2)
+                if o2 >= 0:
+                  sensors.append(line[o2 + 1])
+                self.status['limit_hit_sensors'] = sensors;
             else:
                 self.status['limit_hit'] = False
+                self.status['limit_hit_sensors'] = []
 
             if 'R' in line:  # Stop: by serial requested
                 self.status['serial_stop_request'] = True

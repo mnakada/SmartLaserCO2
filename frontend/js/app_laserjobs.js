@@ -391,44 +391,48 @@ $(document).ready(function(){
   $("#progressbar").hide();
   $("#job_submit").click(function(e) {
     // send gcode string to server via POST
-    DataHandler.setByJson($('#job_data').val());
-    if (readPassesWidget()) {
-      var job_bbox = DataHandler.getJobBbox();
-      if (job_bbox[0] >= 0 &&
-          job_bbox[1] >= 0 &&
-          job_bbox[2] <= app_settings.work_area_dimensions[0] &&
-          job_bbox[3] <= app_settings.work_area_dimensions[1])
-      {
-        send_gcode(DataHandler.getGcode(), "データ送信中", true);
+    if (hardware_status.power && hardware_status.serial_connected && hardware_status.ready) {
+      DataHandler.setByJson($('#job_data').val());
+      if (readPassesWidget()) {
+        var job_bbox = DataHandler.getJobBbox();
+        if (job_bbox[0] >= 0 &&
+            job_bbox[1] >= 0 &&
+            job_bbox[2] <= app_settings.work_area_dimensions[0] &&
+            job_bbox[3] <= app_settings.work_area_dimensions[1])
+        {
+          send_gcode(DataHandler.getGcode(), "データ送信中", true);
           send_log_message();
+        } else {
+          $().uxmessage('warning', "作業領域外になります。");
+        }
       } else {
-        $().uxmessage('warning', "作業領域外になります。");
+        $().uxmessage('warning', "色の選択がありません。加工する色を選択してください。");
       }
-    } else {
-      $().uxmessage('warning', "色の選択がありません。加工する色を選択してください。");
+      return false;
     }
-    return false;
   });
 
 
   $('#job_bbox_submit').tooltip();
   $("#job_bbox_submit").click(function(e) {
-    DataHandler.setByJson($('#job_data').val());
-    if (readPassesWidget()) {
-      var job_bbox = DataHandler.getJobBbox();
-      if (job_bbox[0] >= 0 &&
-          job_bbox[1] >= 0 &&
-          job_bbox[2] <= app_settings.work_area_dimensions[0] &&
-          job_bbox[3] <= app_settings.work_area_dimensions[1])
-      {
-        send_gcode(DataHandler.getBboxGcode(), "境界領域送信中", true);
+    if (hardware_status.power && hardware_status.serial_connected && hardware_status.ready) {
+      DataHandler.setByJson($('#job_data').val());
+      if (readPassesWidget()) {
+        var job_bbox = DataHandler.getJobBbox();
+        if (job_bbox[0] >= 0 &&
+            job_bbox[1] >= 0 &&
+            job_bbox[2] <= app_settings.work_area_dimensions[0] &&
+            job_bbox[3] <= app_settings.work_area_dimensions[1])
+        {
+          send_gcode(DataHandler.getBboxGcode(), "境界領域送信中", true);
+        } else {
+          $().uxmessage('warning', "作業領域外になります。");
+        }
       } else {
-        $().uxmessage('warning', "作業領域外になります。");
+        $().uxmessage('warning', "色の選択がありません。加工する色を選択してください。");
       }
-    } else {
-      $().uxmessage('warning', "色の選択がありません。加工する色を選択してください。");
+      return false;
     }
-    return false;
   });
 
   $('#job_save_to_queue').tooltip();

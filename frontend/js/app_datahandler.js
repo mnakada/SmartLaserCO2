@@ -31,8 +31,8 @@ DataHandler = {
 // C:Raster End
   },
 
-
-
+ 
+  
 
   // readers //////////////////////////////////
 
@@ -96,16 +96,14 @@ DataHandler = {
   addRasters : function(rasters_by_color) {
     // read raster
     // {'#000000':[[x, y], [width, height], [pix_w, pix_h], data)], '#ffffff':[..]}
-    for (var color in rasters_by_color) {
-      var rasters_src = rasters_by_color[color];
-      if (color == 0)
-        color = '#0000ff'
+    for (var c in rasters_by_color) {
+      var rasters_src = rasters_by_color[c];
+      color = '#0000ff';
       if (!this.rasters_by_color[color])
         this.rasters_by_color[color] = [];
       if (!this.paths_by_color[color])
         this.paths_by_color[color] = [];
-      var rasters = this.rasters_by_color[color];
-      rasters.push(rasters_src);
+      this.rasters_by_color[color].push(rasters_src);
     }
     // also calculate stats
     this.calculateBasicStats();
@@ -160,127 +158,130 @@ DataHandler = {
       var intensity = this.mapConstrainIntesity(pass['intensity']);
       glist.push("G1F"+feedrate+"\nS"+intensity+"\n");
       for (var c=0; c<colors.length; c++) {
-        var color = colors[c];
-// I:Raster Start
-        // Rasters
-        var rasters = this.rasters_by_color[color];
-        for (var k=0; k<rasters.length; k++) {
-          var raster = rasters[k];
+          var color = colors[c];
+  // I:Raster Start
+          // Rasters
+          var rasters = null;
+          if(this.rasters_by_color) rasters = this.rasters_by_color[color];
+          if(rasters) {
+            for (var k=0; k<rasters.length; k++) {
+              var raster = rasters[k];
 
-          // Raster Data
-          var x1 = raster[0][0];
-          var y1 = raster[0][1];
-          var width = raster[1][0];
-          var height = raster[1][1];
-          var pixwidth = raster[2][0];
-          var pixheight = raster[2][1];
-          var data = raster[3];
+              // Raster Data
+              var x1 = raster[0][0];
+              var y1 = raster[0][1];
+              var width = raster[1][0];
+              var height = raster[1][1];
+              var pixwidth = raster[2][0];
+              var pixheight = raster[2][1];
+              var data = raster[3];
 
-          // Raster Variables
-          var dot_pitch = width / pixwidth;
+              // Raster Variables
+              var dot_pitch = width / pixwidth;
 
-          // Calculate the offset based on acceleration and feedrate.
-          var offset = 0.5 * feedrate * feedrate / 8000000;
-          offset *= 1.1;  // Add some margin.
-          if (offset < 5)
-            offset = 5;
+              // Calculate the offset based on acceleration and feedrate.
+              var offset = 0.5 * feedrate * feedrate / 8000000;
+              offset *= 1.1;  // Add some margin.
+              if (offset < 5)
+                offset = 5;
 
-          // Setup the raster header
-          glist.push("G00X"+x1.toFixed(app_settings.num_digits)+"Y"+y1.toFixed(app_settings.num_digits)+"\n");
-          glist.push("G08P"+dot_pitch.toFixed(app_settings.num_digits+2)+"\n");
-          glist.push("G08X"+offset.toFixed(app_settings.num_digits)+"Z0\n");
-          glist.push("G08N0\n");
+              // Setup the raster header
+              glist.push("G00X"+x1.toFixed(app_settings.num_digits)+"Y"+y1.toFixed(app_settings.num_digits)+"\n");
+              glist.push("G08P"+dot_pitch.toFixed(app_settings.num_digits+2)+"\n");
+              glist.push("G08X"+offset.toFixed(app_settings.num_digits)+"Z0\n");
+              glist.push("G08N0\n");
 
-          // Calculate pixels per pulse
-          var pppX = pixwidth / (width / dot_pitch);
-          var pppY = pixheight / (height / dot_pitch);
-          var reverse = 0;
+              // Calculate pixels per pulse
+              var pppX = pixwidth / (width / dot_pitch);
+              var pppY = pixheight / (height / dot_pitch);
+              var reverse = 0;
 
-          var LineCnt = 0;
-          // Now for the raster data
-          for (var y = 0; y < pixheight; y += pppY) {
+              var LineCnt = 0;
+              // Now for the raster data
+              for (var y = 0; y < pixheight; y += pppY) {
 
-            var line = Math.round(y) * pixwidth;
-            var count = 0;
-            var empty = 1;
-            var raster = "";
-            raster += "G8 D";
+                var line = Math.round(y) * pixwidth;
+                var count = 0;
+                var empty = 1;
+                var raster = "";
+                raster += "G8 D";
 
-            if (reverse == 0) {
-	            for (var x = 0; x < pixwidth; x += pppX) {
-	              var pixel = line + Math.round(x);
-	              if (data[pixel] == 0) {
-	                raster += "1";
-                    empty = 0;
-	              } else {
-	                raster += "0";
-	              }
-	              count++;
-	              if (count % 70 == 0) {
-	                  raster += "\nG8 D";
-	              }
-	            }
-            } else {
-	            for (var x = pixwidth - 1; x >= 0; x -= pppX) {
-	              var pixel = line + Math.round(x);
-	              if (data[pixel] == 0) {
-	                raster += "1";
-                    empty = 0;
-	              } else {
-	                raster += "0";
-	              }
-	              count++;
-	              if (count % 70 == 0) {
-	                  raster += "\nG8 D";
-	              }
-	            }
-            }
-            if (empty == 0) {
                 if (reverse == 0) {
-	                glist.push("G8 R0\n");
-		            reverse = 1;
+                  for (var x = 0; x < pixwidth; x += pppX) {
+                    var pixel = line + Math.round(x);
+                    if (data[pixel] == 0) {
+                      raster += "1";
+                        empty = 0;
+                    } else {
+                      raster += "0";
+                    }
+                    count++;
+                    if (count % 70 == 0) {
+                        raster += "\nG8 D";
+                    }
+                  }
                 } else {
-	                glist.push("G8 R1\n");
-		            reverse = 0;
+                  for (var x = pixwidth - 1; x >= 0; x -= pppX) {
+                    var pixel = line + Math.round(x);
+                    if (data[pixel] == 0) {
+                      raster += "1";
+                        empty = 0;
+                    } else {
+                      raster += "0";
+                    }
+                    count++;
+                    if (count % 70 == 0) {
+                        raster += "\nG8 D";
+                    }
+                  }
                 }
-                glist.push(raster + "\n");
-	            glist.push("G8 N0\n");
+                if (empty == 0) {
+                    if (reverse == 0) {
+                      glist.push("G8 R0\n");
+                    reverse = 1;
+                    } else {
+                      glist.push("G8 R1\n");
+                    reverse = 0;
+                    }
+                    glist.push(raster + "\n");
+                  glist.push("G8 N0\n");
+                }
+                else {
+    // C:刻印不具合修正 Start
+                    glist.push("G00X"+(x1).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
+                    reverse = 0;
+    //                if (reverse == 0) {
+    //		          glist.push("G00X"+(x1).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
+    //                } else {
+    //		          glist.push("G00X"+(x1 + width).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
+    //                }
+    // C:刻印不具合修正 End
+                }
+                LineCnt++;
+              }
             }
-            else {
-// C:刻印不具合修正 Start
-                glist.push("G00X"+(x1).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
-                reverse = 0;
-//                if (reverse == 0) {
-//		          glist.push("G00X"+(x1).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
-//                } else {
-//		          glist.push("G00X"+(x1 + width).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
-//                }
-// C:刻印不具合修正 End
-            }
-            LineCnt++;
           }
-        }
-        // Paths
-// I:Raster End
-        var paths = this.paths_by_color[color];
-        for (var k=0; k<paths.length; k++) {
-          var path = paths[k];
-          if (path.length > 0) {
-            var vertex = 0;
-            var x = path[vertex][0];
-            var y = path[vertex][1];
-            glist.push("G0X"+x.toFixed(app_settings.num_digits)+
-                         "Y"+y.toFixed(app_settings.num_digits)+"\n");
-            for (vertex=1; vertex<path.length; vertex++) {
+          // Paths
+  // I:Raster End
+          var paths = this.paths_by_color[color];
+          for (var k=0; k<paths.length; k++) {
+            var path = paths[k];
+            if (path.length > 0) {
+              var vertex = 0;
               var x = path[vertex][0];
               var y = path[vertex][1];
-              glist.push("G1X"+x.toFixed(app_settings.num_digits)+
+              glist.push("G0X"+x.toFixed(app_settings.num_digits)+
                            "Y"+y.toFixed(app_settings.num_digits)+"\n");
-            }
-          }      
+              for (vertex=1; vertex<path.length; vertex++) {
+                var x = path[vertex][0];
+                var y = path[vertex][1];
+                glist.push("G1X"+x.toFixed(app_settings.num_digits)+
+                             "Y"+y.toFixed(app_settings.num_digits)+"\n");
+              }
+            }      
+          }
         }
       }
-    }
     // footer
     glist.push("M81\nS0\nG0X0Y0F"+app_settings.max_seek_speed+"\n");
     // alert(JSON.stringify(glist.join('')))
@@ -335,25 +336,21 @@ DataHandler = {
             // For rendering, use 1 pixel per mm (coarse) and an arbitrary offset to speed things up.
             var ppmmX = pixwidth / width;
             var ppmmY = pixheight / height;
-            var offset = 20;
 
             canvas.stroke('#aaaaaa');
-            canvas.line(x_prev, y_prev, x1-offset, y);
+            canvas.line(x_prev, y_prev, x1, y1);
             for (var y = y1; y < y1 + height; y++) {
-              var line = Math.round(ppmmY * (y-y1)) * pixwidth;
+              var line = Math.floor(ppmmY * (y-y1)) * pixwidth;
               for (var x=x1; x < x1 + width; x++) {
-                var pixel = Math.round(line + (x - x1) * ppmmX);
+                var pixel = Math.floor(line + (x - x1) * ppmmX);
                 if (data[pixel] == 255)
                   canvas.stroke('#eeeeee');
                 else
                   canvas.stroke(color);
                 canvas.line(x, y, x+1, y);
               }
-              canvas.stroke('#aaaaaa');
-              canvas.line(x1 + width, y, x1 + width + offset, y);
-              canvas.line(x1 - offset, y, x1, y);
             }
-            x_prev = x1 + width + offset;
+            x_prev = x1 + width;
             y_prev = y1 + height;
           }
         }

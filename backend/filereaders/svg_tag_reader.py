@@ -16,7 +16,7 @@ from .svg_path_reader import SVGPathReader
 
 # I:Raster Start
 from PIL import Image
-RASTER_WIDTH_MAX = 1024
+RASTER_WIDTH_MAX = 4096
 # I:Raster End
 
 log = logging.getLogger("svg_reader")
@@ -218,17 +218,9 @@ class SVGTagReader:
         if (len(embedded) > 1):
             image = Image.open(io.BytesIO(base64.b64decode(embedded[1].encode('utf-8'))))
 
-        # Check the image is a sensible size
-        ppmm = image.size[1] / height;
-        if (ppmm < 2):
-            scale = (height * 2) / height
-            image = image.resize((int(width*scale),int(height*scale)))
-        elif (ppmm > 40):
-            scale = (height * 40) / height
-            image = image.resize((int(width*scale),int(height*scale)))
-
+        image = image.resize((int(width),int(height)))
         converted_image = image.convert("1")
-        #converted_image.show()
+#        converted_image.show()
 
         if (converted_image.size[0] < RASTER_WIDTH_MAX):
             raster_data = converted_image.getdata()

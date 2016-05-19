@@ -250,7 +250,7 @@ DataHandler = {
               // Now for the raster data
               for (var y = 0; y < pixheight; y += pppY) {
 
-                var line = Math.round(y) * pixwidth;
+                var line = Math.floor(y) * pixwidth;
                 var count = 0;
                 var empty = 1;
                 var raster = "";
@@ -258,7 +258,7 @@ DataHandler = {
 
                 if (reverse == 0) {
                   for (var x = 0; x < pixwidth; x += pppX) {
-                    var pixel = line + Math.round(x);
+                    var pixel = line + Math.floor(x);
                     if (data[pixel] == 0) {
                       raster += "1";
                         empty = 0;
@@ -388,8 +388,6 @@ DataHandler = {
             var ppmmX = pixwidth / width;
             var ppmmY = pixheight / height;
 
-            canvas.stroke('#aaaaaa');
-            canvas.line(x_prev, y_prev, x1, y1);
             for (var y = y1; y < y1 + height; y++) {
               var line = Math.floor(ppmmY * (y-y1)) * pixwidth;
               for (var x=x1; x < x1 + width; x++) {
@@ -642,7 +640,7 @@ DataHandler = {
 
     // rasters
     for (var color in this.rasters_by_color) {
-      var raster_lengths_color = 1;
+      var raster_lengths_color = 0;
       var bbox_color = [Infinity, Infinity, 0, 0];
       var rasters = this.rasters_by_color[color];
       if (rasters) {
@@ -652,6 +650,14 @@ DataHandler = {
           var y = raster[0][1];
           var width = raster[1][0];
           var height = raster[1][1];
+          var pixwidth = raster[2][0];
+          var pixheight = raster[2][1];
+          var dot_pitch = width / pixwidth;
+          var count = 0;
+          for(var i in raster[3]) {
+            if(raster[3][i] == 0) count++;
+          }
+          raster_lengths_color += width * height / dot_pitch * count / pixwidth / pixheight;
           this.bboxExpand(bbox_color, x, y);
           this.bboxExpand(bbox_color, x + width, y + height);
         }

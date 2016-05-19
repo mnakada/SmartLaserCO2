@@ -97,6 +97,7 @@ class RPiPowerControlClass:
         if self.PowerStatus == 0: # power on
           self.set_power(1)
           logger.info('power on by button')
+          self.LastAccess = time.time()
         else: # power off
           self.set_power(0)
           logger.info('power off by button')

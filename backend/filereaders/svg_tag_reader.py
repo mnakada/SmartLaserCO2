@@ -16,7 +16,6 @@ from .svg_path_reader import SVGPathReader
 
 # I:Raster Start
 from PIL import Image
-RASTER_WIDTH_MAX = 1000
 # I:Raster End
 
 log = logging.getLogger("svg_reader")
@@ -202,6 +201,7 @@ class SVGTagReader:
 
     def image(self, node):
 # C:Raster Start
+        raster = []
         # has transform and style attributes
         data = node['{http://www.w3.org/1999/xlink}href']
         x = node.get('x') or 0
@@ -209,7 +209,7 @@ class SVGTagReader:
         width = node.get('width') or 0
         height = node.get('height') or 0
 
-        embedded = data.split('data:image/png;base64,')
+        embedded = re.split('data:image/.*;base64,', data)
         linked = data.split('file://')
         
         if (len(linked) > 1):
@@ -220,21 +220,13 @@ class SVGTagReader:
         image = image.resize((int(width),int(height)))
         converted_image = image.convert("1")
 #        converted_image.show()
-        hcount = int((converted_image.size[0] + RASTER_WIDTH_MAX - 1) / RASTER_WIDTH_MAX)
-        for i in range(0, hcount):
-            raster = []
-            crop_offset = i * RASTER_WIDTH_MAX
-            crop_width = converted_image.size[0] - crop_offset
-            if crop_width > RASTER_WIDTH_MAX:
-                crop_width = RASTER_WIDTH_MAX
-            crop_image = converted_image.crop((crop_offset, 0, crop_offset + crop_width, converted_image.size[1]))
-            raster_data = crop_image.getdata()
-            raster.append([x + crop_offset, y])
-            raster.append([width * crop_image.size[0] / converted_image.size[0], height])
-            raster.append([crop_image.size[0], crop_image.size[1]])
-            raster.append(list(raster_data))
-            node['rasters'].append(raster)
-#            crop_image.show()
+
+        raster_data = converted_image.getdata()
+        raster.append([x, y])
+        raster.append([width, height])
+        raster.append([converted_image.size[0], converted_image.size[1]])
+        raster.append(list(raster_data))
+        node['rasters'].append(raster)
 # C:Raster End
 
     def defs(self, node):

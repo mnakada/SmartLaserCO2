@@ -1,7 +1,7 @@
 
 var app_settings = {
   work_area_dimensions: [580,400],
-  max_seek_speed: 8000,
+  max_seek_speed: 6000,
   default_feedrate: 1000,
   default_intensity: 100,
   num_digits: 2, 
@@ -9,6 +9,7 @@ var app_settings = {
   max_segment_length: 5.0,
   table_offset: [5,5],  // has to match firmware
   disable_power_on: true,
+//  raster_reverse_disable: true,
 }
 
 

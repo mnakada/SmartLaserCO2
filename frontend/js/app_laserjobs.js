@@ -403,7 +403,12 @@ $(document).ready(function(){
           send_gcode(DataHandler.getGcode(), "データ送信中", true);
           send_log_message();
         } else {
-          $().uxmessage('warning', "作業領域外になります。");
+          $().uxmessage('warning', "(" +
+              job_bbox[0].toFixed(2) + "," +
+              job_bbox[1].toFixed(2) + ")-(" +
+              job_bbox[2].toFixed(2) + "," +
+              job_bbox[3].toFixed(2) + ")" +
+              " : 作業領域外になります。");
         }
       } else {
         $().uxmessage('warning', "色の選択がありません。加工する色を選択してください。");

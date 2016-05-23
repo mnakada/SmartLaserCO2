@@ -125,12 +125,20 @@ def run_with_callback(host, port):
 #        print "Cannot open Webbrowser, please do so manually."
     sys.stdout.flush()  # make sure everything gets flushed
     server.timeout = 0
+    lastPowerStatus = 0
+    powerStateChange = 0
     while 1:
         try:
             SerialManager.send_queue_as_ready()
             server.handle_request()
             if HARDWARE == 'raspberrypi':
-              RPiPowerControl.interval_check()
+              powerStatus = RPiPowerControl.interval_check()
+              if powerStatus != lastPowerStatus:
+                print powerStatus, lastPowerStatus
+                powerStateChange = 1
+                lastPowerStatus = powerStatus
+            if powerStateChange:
+              powerStateChange = checkStatus()
             time.sleep(0.0004)
         except KeyboardInterrupt:
             if HARDWARE == 'raspberrypi':
@@ -144,6 +152,23 @@ def run_with_callback(host, port):
     SerialManager.close()
 
 
+lastCheck = 0
+def checkStatus():
+    global lastCheck
+    checkFlag = 1
+    now = time.time()
+    if now - lastCheck < 1.0:
+      return checkFlag
+    status = get_status()
+    if (int(status['power']) > 0) and not status['door_open'] and status['ready'] and status['serial_connected']:
+      SerialManager.queue_gcode('!\n')
+      time.sleep(1.0)
+      SerialManager.queue_gcode('~\nG90\nG30\n')
+      checkFlag = 0
+    if (int(status['power']) == 0):
+      checkFlag = 0
+    lastCheck = now
+    return checkFlag
 
 
 # @route('/longtest')
@@ -364,7 +389,6 @@ def logging_handler():
     length = request.forms.get('length')
     logger.info('processing : ' +feedrate+' '+intensity+' '+length)
 
-@route('/status')
 def get_status():
     status = copy.deepcopy(SerialManager.get_hardware_status())
     status['serial_connected'] = SerialManager.is_connected()
@@ -376,8 +400,11 @@ def get_status():
       status['power'] = 1;
       status['assist_air'] = 1;
     status['lasaurapp_version'] = VERSION
-    return json.dumps(status)
+    return status
 
+@route('/status')
+def get_status_json():
+    return json.dumps(get_status())
 
 @route('/pause/:flag')
 def set_pause(flag):

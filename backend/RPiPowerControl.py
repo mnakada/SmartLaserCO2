@@ -73,7 +73,7 @@ class RPiPowerControlClass:
   def interval_check(self):
     now = time.time()
     if now < self.LastInterval + self.Interval:
-      return
+      return self.PowerStatus
     self.LastInterval = now
     if (self.PowerStatus > 0) and (self.ProcessStatus == 0) and (now > (self.LastAccess + self.Timeout)):
       logger.info('auto shutdown')
@@ -116,5 +116,6 @@ class RPiPowerControlClass:
         logger.info('delayed power off')
       else:
         GPIO.output(self.PowerLEDPort, (self.LEDTick / 8) & 1)
+    return self.PowerStatus
 
 RPiPowerControl = RPiPowerControlClass()

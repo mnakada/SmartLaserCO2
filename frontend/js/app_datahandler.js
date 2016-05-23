@@ -7,6 +7,8 @@
 
 DataHandler = {
 
+  raster_width_max : 1000,
+
   nums : [
     [[[1,0.17],[0.67,0],[0.33,0.17],[0.08,0.81],[0,1.5],[0.08,2.19],[0.33,2.83],[0.67,3],[1,2.83],[1.25,2.19],[1.33,1.5],[1.25,0.81],[1,0.17]]],
     [[[0,0.67],[0.67,0],[0.67,3]]],
@@ -236,83 +238,53 @@ DataHandler = {
                 offset = 5;
 
               // Setup the raster header
-              glist.push("G00X"+x1.toFixed(app_settings.num_digits)+"Y"+y1.toFixed(app_settings.num_digits)+"\n");
+              glist.push("G00X"+(x1 - 2).toFixed(app_settings.num_digits)+"Y"+(y1 - 2).toFixed(app_settings.num_digits)+"\n");
               glist.push("G08P"+dot_pitch.toFixed(app_settings.num_digits+2)+"\n");
               glist.push("G08X"+offset.toFixed(app_settings.num_digits)+"Z0\n");
               glist.push("G08N0\n");
 
               // Calculate pixels per pulse
-              var pppX = pixwidth / (width / dot_pitch);
-              var pppY = pixheight / (height / dot_pitch);
               var reverse = 0;
-
-              var LineCnt = 0;
               // Now for the raster data
-              for (var y = 0; y < pixheight; y += pppY) {
-
+              for (var y = 0; y < pixheight; y++) {
                 var line = Math.floor(y) * pixwidth;
-                var count = 0;
-                var empty = 1;
-                var raster = "";
-                raster += "G8 D";
-
-                if (reverse == 0) {
-                  for (var x = 0; x < pixwidth; x += pppX) {
-                    var pixel = line + Math.floor(x);
+                for (var x = 0; x < pixwidth; x += this.raster_width_max) {
+                  var sx = x;
+                  if(reverse) sx = pixwidth - x - this.raster_width_max;
+                  if(sx < 0) sx = 0;
+                  glist.push("G04X"+(x1 + sx * dot_pitch).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * y)).toFixed(app_settings.num_digits)+"\n"); // move position hack
+                  var count = 0;
+                  var empty = 1;
+                  var raster = "G8 D";
+                  for (var px = 0; px < this.raster_width_max; px++) {
+                    if(x + px >= pixwidth) break;
+                    var pixel = x + px;
+                    if(reverse) pixel = pixwidth - 1 - pixel;
+                    pixel += line;
                     if (data[pixel] == 0) {
                       raster += "1";
-                        empty = 0;
+                      empty = 0;
                     } else {
                       raster += "0";
                     }
                     count++;
-                    if (count % 70 == 0) {
-                        raster += "\nG8 D";
-                    }
+                    if (count % 70 == 0) raster += "\nG8 D";
                   }
-                } else {
-                  for (var x = pixwidth - 1; x >= 0; x -= pppX) {
-                    var pixel = line + Math.round(x);
-                    if (data[pixel] == 0) {
-                      raster += "1";
-                        empty = 0;
-                    } else {
-                      raster += "0";
-                    }
-                    count++;
-                    if (count % 70 == 0) {
-                        raster += "\nG8 D";
-                    }
-                  }
-                }
-                if (empty == 0) {
-                    if (reverse == 0) {
+                  if(!empty) {
+                    if(!reverse) {
                       glist.push("G8 R0\n");
-                    reverse = 1;
                     } else {
                       glist.push("G8 R1\n");
-                    reverse = 0;
                     }
-                    glist.push(raster + "\n");
-                  glist.push("G8 N0\n");
+                    glist.push(raster + "\nG8 N0\n");
+                  }
                 }
-                else {
-    // C:刻印不具合修正 Start
-                    glist.push("G00X"+(x1).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
-                    reverse = 0;
-    //                if (reverse == 0) {
-    //		          glist.push("G00X"+(x1).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
-    //                } else {
-    //		          glist.push("G00X"+(x1 + width).toFixed(app_settings.num_digits)+"Y"+(y1 + (dot_pitch * LineCnt)).toFixed(app_settings.num_digits)+"\n");
-    //                }
-    // C:刻印不具合修正 End
-                }
-                LineCnt++;
+                if(!app_settings.raster_reverse_disable) reverse ^= 1;
               }
             }
           }
-          // Paths
   // I:Raster End
+          // Paths
           var paths = this.paths_by_color[color];
           for (var k=0; k<paths.length; k++) {
             var path = paths[k];
@@ -784,9 +756,9 @@ DataHandler = {
     if (rate < .1) {
       rate = .1;
       $().uxmessage('warning', "速度は0.1以上に設定してください。");
-    } else if (rate > 8000) {
-      rate = 8000;
-      $().uxmessage('warning', "速度は8000以下に設定してください。");
+    } else if (rate > app_settings.max_seek_speed) {
+      rate = app_settings.max_seek_speed;
+      $().uxmessage('warning', "速度は" + app_settings.max_seek_speed + "以下に設定してください。");
     }
     return rate.toString();
   },

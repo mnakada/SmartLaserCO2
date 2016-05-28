@@ -1,6 +1,6 @@
 #!/bin/bash
 
 cd `dirname $0`
-python backend/app.py --raspberrypi --public --network_port 80 --libsdir /tmp/smartlaser --log /var/log/smartlaser.log &
+python backend/app.py --public --network_port 80 --libsdir /tmp/smartlaser --log /var/log/smartlaser.log $@ &
 echo $! > /var/run/smartlaser.pid
 

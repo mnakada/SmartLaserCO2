@@ -10,6 +10,7 @@ from flash import flash_upload, reset_atmega
 from build import build_firmware
 from filereaders import read_svg, read_dxf, read_ngc
 import logging
+import ssl
 
 APPNAME = "SmartLaser"
 VERSION = "1.0.0"
@@ -23,6 +24,9 @@ CONFIG_FILE = "lasaurapp.conf"
 COOKIE_KEY = 'secret_key_jkn23489hsdf'
 FIRMWARE = "LasaurGrbl.hex"
 TOLERANCE = 0.08
+CERTSDIR = None
+accessUser = None
+accounts = {}
 
 
 if os.name == 'nt': #sys.platform == 'win32':
@@ -86,12 +90,44 @@ class HackedWSGIRequestHandler(WSGIRequestHandler):
         return str(self.client_address[0])
 
 
+def verify_request(request, client_address):
+    global accessUser
+    subject = request.getpeercert()['subject']
+    for entity in subject:
+      if entity[0][0] == 'commonName':
+        accessUser = entity[0][1]
+        return accessUser in accounts
+    return False
+
+def loadAccounts():
+    if CERTSDIR==None:
+      return
+    global accounts
+    accounts = {}
+    try:
+      f = open(os.path.abspath(os.path.join(CERTSDIR, 'accounts.json')), 'r')
+      a = json.load(f)['accounts']
+      f.close()
+      for i in a:
+        accounts[i['user']] = i['admin']
+    except IOError:
+      pass
+
 def run_with_callback(host, port):
     """ Start a wsgiref server instance with control over the main loop.
         This is a function that I derived from the bottle.py run()
     """
     handler = default_app()
     server = make_server(host, port, handler, handler_class=HackedWSGIRequestHandler)
+    if CERTSDIR:
+      server.socket = ssl.wrap_socket(server.socket, \
+        keyfile=os.path.abspath(os.path.join(CERTSDIR, 'common_smartlaser.key')), \
+        certfile=os.path.abspath(os.path.join(CERTSDIR, 'common_smartlaser.crt')), \
+        server_side=True, \
+        cert_reqs=ssl.CERT_REQUIRED, \
+        ca_certs=os.path.abspath(os.path.join(CERTSDIR, 'smartlaser_privateca.crt')))
+      loadAccounts()
+      server.verify_request = verify_request
     server.timeout = 0.01
     server.quiet = True
     print "Persistent storage root is: " + storage_dir()
@@ -328,6 +364,7 @@ def queue_unstar_handler(name):
 @route('/index.html')
 @route('/app.html')
 def default_handler():
+    loadAccounts()
     return static_file('app.html', root=os.path.join(resources_dir(), 'frontend') )
 
 
@@ -383,11 +420,14 @@ def serial_handler(connect):
 
 @route('/logging', method='POST')
 def logging_handler():
-    timestamp = request.forms.get('timestamp')
     feedrate = request.forms.get('feedrate')
     intensity = request.forms.get('intensity')
     length = request.forms.get('length')
-    logger.info('processing : ' +feedrate+' '+intensity+' '+length)
+    logger.info('processing : ' + (accessUser + ' ' if accessUser else '') +feedrate+' '+intensity+' '+length)
+
+@route('/status')
+def get_status_json():
+    return json.dumps(get_status())
 
 def get_status():
     status = copy.deepcopy(SerialManager.get_hardware_status())
@@ -401,10 +441,6 @@ def get_status():
       status['assist_air'] = 1;
     status['lasaurapp_version'] = VERSION
     return status
-
-@route('/status')
-def get_status_json():
-    return json.dumps(get_status())
 
 @route('/pause/:flag')
 def set_pause(flag):
@@ -624,6 +660,8 @@ argparser.add_argument('--network_port', dest='network_port',
                     default=4444, help='bind netowrk port (default:4444)')
 argparser.add_argument('--libsdir', dest='libsdir',
                     default=False, help='libraries direcotry')
+argparser.add_argument('--certsdir', dest='certsDir',
+                    default=False, help='accounts file')
 argparser.add_argument('--log', dest='logfile',
                     default=False, help='logging file')
 args = argparser.parse_args()
@@ -723,6 +761,9 @@ if args.network_port:
 
 if args.libsdir:
     LIBSDIR = args.libsdir
+
+if args.certsDir:
+    CERTSDIR = args.certsDir
 
 if args.logfile:
     logger = logging.getLogger()

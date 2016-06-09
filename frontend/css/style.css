@@ -31,6 +31,22 @@ div.log_error {
   border: 1px solid red;
 }
 
+span.accounts1 {
+  display: inline-block;
+  width: 35%;
+}
+
+span.accounts2 {
+  display: inline-block;
+  width: 65%;
+}
+
+span.accounts3 {
+  display: inline-block;
+  margin-left:5%;
+  width: 95%;
+}
+
 button.active-strong {
   border: 1px solid #aaaaaa;
 }

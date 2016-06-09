@@ -1,0 +1,42 @@
+#!/bin/sh
+
+OUT_PATH=$2
+cd `dirname $0`
+CONF=smartlaserca.conf
+CACERT=smartlaser_privateca
+COMMONCERT=common_smartlaser
+CommonName=$1
+
+if [ -f ./property.conf ] ; then
+. ./property.conf
+fi
+
+if [ -d CA ] ; then
+  echo "already exists CA directory..... skip"
+else
+  mkdir -p CA/certs
+  mkdir -p CA/crl
+  mkdir -p CA/newcerts
+  mkdir -p CA/private
+  touch CA/index.txt
+  echo "Generating PrivateCA"
+  openssl req -config $CONF -new -newkey rsa:2048 -nodes -keyout CA/private/$CACERT.key -extensions ca_cert -out CA/$CACERT.req -subj "/C=$CountryName/ST=$StateOrProvinceName/L=$LocalityName/O=SmartLaser PrivateCA/CN=SmartLaser PrivateCA"
+  [ $? = 0 ] && openssl ca -config $CONF -create_serial -out CA/$CACERT.crt -days 3650 -batch -keyfile CA/private/$CACERT.key -selfsign -extensions ca_cert -infiles CA/$CACERT.req
+  [ $? = 0 ] || exit 1
+fi
+
+if [ -d Common ] ; then
+  echo "already exists Common directory."
+  exit 1
+fi
+mkdir -p Common
+echo "Generating CommonServer certificate"
+openssl req -config $CONF -new -newkey rsa:2048 -extensions server_cert -nodes -keyout Common/$COMMONCERT.key -out Common/$COMMONCERT.req -subj "/C=$CountryName/ST=$StateOrProvinceName/L=$LocalityName/O=SmartLaser Server/CN=$CommonName"
+[ $? = 0 ] && openssl ca -config $CONF -out Common/$COMMONCERT.crt -days 3650 -batch -keyfile CA/private/$CACERT.key -cert CA/$CACERT.crt -extensions server_cert -infiles Common/$COMMONCERT.req
+[ $? = 0 ] || exit 1
+
+mkdir -p $OUT_PATH
+cp CA/$CACERT.crt $OUT_PATH
+cp Common/$COMMONCERT.crt $OUT_PATH
+cp Common/$COMMONCERT.key $OUT_PATH
+

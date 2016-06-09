@@ -1,5 +1,5 @@
 
-import sys, os, time
+import sys, os, time, signal
 import glob, json, argparse, copy
 import tempfile
 import socket, webbrowser
@@ -19,14 +19,22 @@ SERIAL_PORT = None
 BITSPERSECOND = 57600
 NETWORK_PORT = 4444
 LIBSDIR = None
-HARDWARE = 'x86'  # also: 'beaglebone', 'raspberrypi'
+HARDWARE = 'x86'  # also: 'raspberrypi'
 CONFIG_FILE = "lasaurapp.conf"
-COOKIE_KEY = 'secret_key_jkn23489hsdf'
 FIRMWARE = "LasaurGrbl.hex"
 TOLERANCE = 0.08
 CERTSDIR = None
+KEYFILE = None
+CERTSFILE = None
+CA_CERTSFILE = None
 accessUser = None
 accounts = {}
+accountsTable = []
+statistics = {}
+logger = None
+COMMON_NAME = None
+ADMIN = None
+redirect_pid = 0
 
 
 if os.name == 'nt': #sys.platform == 'win32':
@@ -78,7 +86,7 @@ def storage_dir():
 
 class HackedWSGIRequestHandler(WSGIRequestHandler):
     """ This is a heck to solve super slow request handling
-    on the BeagleBone and RaspberryPi. The problem is WSGIRequestHandler
+    on the RaspberryPi. The problem is WSGIRequestHandler
     which does a reverse lookup on every request calling gethostbyaddr.
     For some reason this is super slow when connected to the LAN.
     (adding the IP and name of the requester in the /etc/hosts file
@@ -92,26 +100,84 @@ class HackedWSGIRequestHandler(WSGIRequestHandler):
 
 def verify_request(request, client_address):
     global accessUser
-    subject = request.getpeercert()['subject']
-    for entity in subject:
-      if entity[0][0] == 'commonName':
-        accessUser = entity[0][1]
-        return accessUser in accounts
+    global statistics
+    cert = request.getpeercert()
+    if cert:
+      subject = cert['subject']
+      for entity in subject:
+        if entity[0][0] == 'commonName':
+          accessUser = entity[0][1]
+          if not accessUser in statistics:
+            statistics[accessUser] = { 'useTime': 0, 'laserTime': 0, 'length': 0, 'lastAccess': 0}
+          if time.time() - statistics[accessUser]['lastAccess'] > 30:
+            statistics[accessUser]['lastAccess'] = time.time()
+            update_statistics()
+          return accessUser in accounts
+    accessUser = None
+    return False
+
+def admin_check():
+    if CERTSDIR==None:
+      return False
+    if (accessUser in accounts) and accounts[accessUser]:
+      return True
     return False
 
 def loadAccounts():
     if CERTSDIR==None:
       return
     global accounts
+    global accountsTable
+    global statistics
     accounts = {}
+    accountsTable = []
     try:
-      f = open(os.path.abspath(os.path.join(CERTSDIR, 'accounts.json')), 'r')
-      a = json.load(f)['accounts']
+      f = open(os.path.join(CERTSDIR, 'accounts.json'), 'r')
+      accountsTable = json.load(f)['accounts']
       f.close()
-      for i in a:
-        accounts[i['user']] = i['admin']
+      for account in accountsTable:
+        accounts[account['user']] = (account['admin'] == True) or (account['admin'] == 'true')
     except IOError:
       pass
+    try:
+      f = open(os.path.join(CERTSDIR, 'accounts.stat'), 'r')
+      statistics = json.load(f)['statistics']
+      f.close()
+    except IOError:
+      pass
+
+def saveAccounts():
+    if CERTSDIR==None:
+      return
+    try:
+      file = os.path.join(CERTSDIR, 'accounts.json')
+      f = open(file + '.bak', 'w')
+      f.write(json.dumps({'accounts':accountsTable}))
+      f.close()
+      os.rename(file + '.bak', file)
+    except IOError:
+      pass
+
+def update_statistics():
+    if CERTSDIR==None:
+      return
+    try:
+      file = os.path.join(CERTSDIR, 'accounts.stat')
+      f = open(file + '.bak', 'w')
+      f.write(json.dumps({'statistics':statistics}))
+      f.close()
+      os.rename(file + '.bak', file)
+    except IOError:
+      pass
+
+def receive_signal(signum, stack):
+  print 'Received:', signum
+  raise KeyboardInterrupt('receive signal')
+
+signal.signal(signal.SIGHUP, receive_signal)
+signal.signal(signal.SIGINT, receive_signal)
+signal.signal(signal.SIGQUIT, receive_signal)
+signal.signal(signal.SIGTERM, receive_signal)
 
 def run_with_callback(host, port):
     """ Start a wsgiref server instance with control over the main loop.
@@ -120,12 +186,12 @@ def run_with_callback(host, port):
     handler = default_app()
     server = make_server(host, port, handler, handler_class=HackedWSGIRequestHandler)
     if CERTSDIR:
-      server.socket = ssl.wrap_socket(server.socket, \
-        keyfile=os.path.abspath(os.path.join(CERTSDIR, 'common_smartlaser.key')), \
-        certfile=os.path.abspath(os.path.join(CERTSDIR, 'common_smartlaser.crt')), \
-        server_side=True, \
-        cert_reqs=ssl.CERT_REQUIRED, \
-        ca_certs=os.path.abspath(os.path.join(CERTSDIR, 'smartlaser_privateca.crt')))
+      server.socket = ssl.wrap_socket(server.socket,
+        keyfile=KEYFILE,
+        certfile=CERTSFILE,
+        server_side=True,
+        cert_reqs=ssl.CERT_REQUIRED,
+        ca_certs=CA_CERTSFILE)
       loadAccounts()
       server.verify_request = verify_request
     server.timeout = 0.01
@@ -135,13 +201,12 @@ def run_with_callback(host, port):
     print "Bottle server starting up ..."
     print "Serial is set to %d bps" % BITSPERSECOND
     print "Point your browser to: "
-    print "http://%s:%d/      (local)" % ('127.0.0.1', port)
-    # if host == '':
-    #     try:
-    #         print "http://%s:%d/   (public)" % (socket.gethostbyname(socket.gethostname()), port)
-    #     except socket.gaierror:
-    #         # print "http://beaglebone.local:4444/      (public)"
-    #         pass
+    if CERTSDIR:
+      print "https://%s:%d/" % (COMMON_NAME, port)
+    elif COMMON_NAME:
+      print "http://%s:%d/" % (COMMON_NAME, port)
+    else:
+      print "http://%s:%d/" % ('127.0.0.1', port)
     print "Use Ctrl-C to quit."
     print "-----------------------------------------------------------------------------"
     print
@@ -170,7 +235,6 @@ def run_with_callback(host, port):
             if HARDWARE == 'raspberrypi':
               powerStatus = RPiPowerControl.interval_check()
               if powerStatus != lastPowerStatus:
-                print powerStatus, lastPowerStatus
                 powerStateChange = 1
                 lastPowerStatus = powerStatus
             if powerStateChange:
@@ -185,6 +249,8 @@ def run_with_callback(host, port):
             traceback.print_exc()
             break
     print "\nShutting down..."
+    if redirect_pid:
+      os.kill(redirect_pid, signal.SIGTERM)
     SerialManager.close()
 
 
@@ -206,13 +272,6 @@ def checkStatus():
     lastCheck = now
     return checkFlag
 
-
-# @route('/longtest')
-# def longtest_handler():
-#     fp = open("longtest.ngc")
-#     for line in fp:
-#         SerialManager.queue_gcode_line(line)
-#     return "Longtest queued."
 
 @route('/css/:path#.+#')
 def static_css_handler(path):
@@ -377,7 +436,6 @@ def stash_download():
     with fp:
         fp.write(filedata)
         fp.close()
-    print filedata
     print "file stashed: " + os.path.basename(filename)
     return os.path.basename(filename)
 
@@ -420,10 +478,25 @@ def serial_handler(connect):
 
 @route('/logging', method='POST')
 def logging_handler():
+    global statistics
     feedrate = request.forms.get('feedrate')
     intensity = request.forms.get('intensity')
+    counts = request.forms.get('counts')
     length = request.forms.get('length')
-    logger.info('processing : ' + (accessUser + ' ' if accessUser else '') +feedrate+' '+intensity+' '+length)
+
+    if logger:
+      logger.info('processing : ' + (accessUser + ' ' if accessUser else '') +'F' + feedrate+' '+intensity+'% '+str(round(float(length)/1000, 2)) + 'm' + counts + 'times')
+    if float(feedrate):
+      useTime = float(length) * float(counts) * 60 / float(feedrate)
+    else:
+      useTime = 0;
+    laserTime = useTime * float(intensity) / 100
+    if accessUser:
+      statistics[accessUser]['useTime'] += useTime
+      statistics[accessUser]['laserTime'] += laserTime
+      statistics[accessUser]['length'] += float(length)
+      statistics[accessUser]['lastAccess'] = time.time()
+      update_statistics()
 
 @route('/status')
 def get_status_json():
@@ -440,7 +513,86 @@ def get_status():
       status['power'] = 1;
       status['assist_air'] = 1;
     status['lasaurapp_version'] = VERSION
+    status['admin'] = admin_check()
+    status['user'] = accessUser
     return status
+
+@route('/accounts/get')
+def get_accounts():
+    if not admin_check():
+      return None
+    return json.dumps({'accounts':accountsTable, 'statistics':statistics})
+
+@route('/accounts/set', method="POST")
+def set_accounts():
+    global accounts
+    global accountsTable
+    if not admin_check():
+      return None
+    user = request.forms.get('user');
+    comment = request.forms.get('comment');
+    admin = request.forms.get('admin');
+    if (accessUser == user) and (admin != 'true'):
+      return None
+    if user in accounts:
+      for account in accountsTable:
+        if account['user'] == user:
+          account['comment'] = comment
+          account['admin'] = admin
+          saveAccounts()
+          break
+    else:
+      add_accounts(user, comment, admin)
+    return json.dumps({'accounts':accountsTable, 'statistics':statistics})
+
+@route('/accounts/remove/:user')
+def remove_accounts(user):
+    global accounts
+    global accountsTable
+    if not admin_check():
+      return None
+    if accounts[user]:
+      return None
+    i = 0
+    for account in accountsTable:
+      if account['user'] == user:
+        accountsTable.pop(i)
+        accounts.pop(user)
+        break
+      i += 1
+    saveAccounts()
+    return json.dumps({'accounts':accountsTable, 'statistics':statistics})
+
+@route('/accounts/certs/:user')
+def get_certs(user):
+    global accounts
+    global accountsTable
+    if not admin_check():
+      return None
+    for account in accountsTable:
+      if account['user'] == user:
+        certs_file = os.path.join(resources_dir(), 'PrivateCA/') + user + '.zip'
+        if not os.path.exists(certs_file):
+          os.system(os.path.join(resources_dir(), 'PrivateCA') + '/mkclient ' + user)
+        
+        fp = file(certs_file, "r")
+        filedata = fp.read()
+        fp.close()
+        fp = tempfile.NamedTemporaryFile(mode='w', delete=False)
+        filename = fp.name
+        with fp:
+            fp.write(filedata)
+            fp.close()
+        print "file stashed: " + os.path.basename(filename)
+        return os.path.basename(filename)
+    return None
+
+def add_accounts(user, comment, admin):
+    accountsTable.append({'user':user, 'comment':comment, 'admin':admin})
+    accounts[user] = (admin == True) or (admin == 'true')
+    saveAccounts()
+    statistics[user] = { 'useTime': 0, 'laserTime': 0, 'length': 0, 'lastAccess': 0}
+    update_statistics()
 
 @route('/pause/:flag')
 def set_pause(flag):
@@ -462,25 +614,29 @@ def set_pause(flag):
 def set_assist_air(flag):
     if HARDWARE == 'raspberrypi':
         RPiPowerControl.set_assist_air(flag)
-        if flag:
-          logger.info('assist air on')
-        else:
-          logger.info('assist air off')
+        if logger:
+          if flag:
+            logger.info('assist air on')
+          else:
+            logger.info('assist air off')
     return flag
 
 @route('/power/:flag')
 def set_power(flag):
     if HARDWARE == 'raspberrypi':
         RPiPowerControl.set_power(flag)
-        if flag:
-          logger.info('power on')
-        else:
-          logger.info('power off')
+        if logger:
+          if flag:
+            logger.info('power on')
+          else:
+            logger.info('power off')
     return flag
 
 @route('/flash_firmware')
 @route('/flash_firmware/:firmware_file')
 def flash_firmware_handler(firmware_file=FIRMWARE):
+    if not admin_check():
+      return None
     global SERIAL_PORT, GUESS_PREFIX
     return_code = 1
     if SerialManager.is_connected():
@@ -530,13 +686,14 @@ def flash_firmware_handler(firmware_file=FIRMWARE):
 
 @route('/build_firmware')
 def build_firmware_handler():
+    if not admin_check():
+      return None
     ret = []
     buildname = "LasaurGrbl_from_src"
     firmware_dir = os.path.join(resources_dir(), 'firmware')
     source_dir = os.path.join(resources_dir(), 'firmware', 'src')
     return_code = build_firmware(source_dir, firmware_dir, buildname)
     if return_code != 0:
-        print ret
         ret.append('<h2>FAIL: build error!</h2>')
         ret.append('Syntax error maybe? Try builing in the terminal.')
         ret.append('<br><a href="/">return</a><br><br>')
@@ -549,6 +706,8 @@ def build_firmware_handler():
 
 @route('/reset_atmega')
 def reset_atmega_handler():
+    if not admin_check():
+      return None
     reset_atmega(HARDWARE)
     return '1'
 
@@ -609,32 +768,6 @@ def file_reader():
         return jsondata
     return "You missed a field."
 
-
-
-# def check_user_credentials(username, password):
-#     return username in allowed and allowed[username] == password
-#
-# @route('/login')
-# def login():
-#     username = request.forms.get('username')
-#     password = request.forms.get('password')
-#     if check_user_credentials(username, password):
-#         response.set_cookie("account", username, secret=COOKIE_KEY)
-#         return "Welcome %s! You are now logged in." % username
-#     else:
-#         return "Login failed."
-#
-# @route('/logout')
-# def login():
-#     username = request.forms.get('username')
-#     password = request.forms.get('password')
-#     if check_user_credentials(username, password):
-#         response.delete_cookie("account", username, secret=COOKIE_KEY)
-#         return "Welcome %s! You are now logged out." % username
-#     else:
-#         return "Already logged out."
-
-
 ### Setup Argument Parser
 argparser = argparse.ArgumentParser(description='Run SmartLaser.', prog='smartlaser')
 argparser.add_argument('port', metavar='serial_port', nargs='?', default=False,
@@ -650,8 +783,6 @@ argparser.add_argument('-l', '--list', dest='list_serial_devices', action='store
                     default=False, help='list all serial devices currently connected')
 argparser.add_argument('-d', '--debug', dest='debug', action='store_true',
                     default=False, help='print more verbose for debugging')
-argparser.add_argument('--beaglebone', dest='beaglebone', action='store_true',
-                    default=False, help='use this for running on beaglebone')
 argparser.add_argument('--raspberrypi', dest='raspberrypi', action='store_true',
                     default=False, help='use this for running on Raspberry Pi')
 argparser.add_argument('-m', '--match', dest='match',
@@ -662,6 +793,10 @@ argparser.add_argument('--libsdir', dest='libsdir',
                     default=False, help='libraries direcotry')
 argparser.add_argument('--certsdir', dest='certsDir',
                     default=False, help='accounts file')
+argparser.add_argument('--commonname', dest='commonname',
+                    default=False, help='certs common name')
+argparser.add_argument('--admin', dest='admin',
+                    default=False, help='admin email')
 argparser.add_argument('--log', dest='logfile',
                     default=False, help='logging file')
 args = argparser.parse_args()
@@ -670,90 +805,37 @@ args = argparser.parse_args()
 
 print "SmartLaser " + VERSION
 
-if args.beaglebone:
-    HARDWARE = 'beaglebone'
-    NETWORK_PORT = 80
-    ### if running on beaglebone, setup (pin muxing) and use UART1
-    # for details see: http://www.nathandumont.com/node/250
-    SERIAL_PORT = "/dev/ttyO1"
-    if os.path.exists("/sys/kernel/debug/omap_mux/uart1_txd"):
-        # we are not on the beaglebone black, setup uart1
-        # echo 0 > /sys/kernel/debug/omap_mux/uart1_txd
-        fw = file("/sys/kernel/debug/omap_mux/uart1_txd", "w")
-        fw.write("%X" % (0))
-        fw.close()
-        # echo 20 > /sys/kernel/debug/omap_mux/uart1_rxd
-        fw = file("/sys/kernel/debug/omap_mux/uart1_rxd", "w")
-        fw.write("%X" % ((1 << 5) | 0))
-        fw.close()
+if args.certsDir:
+    CERTSDIR = os.path.abspath(args.certsDir)
+    KEYFILE = os.path.join(CERTSDIR, 'common_smartlaser.key')
+    CERTSFILE = os.path.join(CERTSDIR, 'common_smartlaser.crt')
+    CA_CERTSFILE = os.path.join(CERTSDIR, 'smartlaser_privateca.crt')
+    if args.admin:
+          ADMIN = args.admin
+    else:
+          ADMIN = 'admin'
+    if args.commonname:
+      COMMON_NAME = args.commonname
+    else:
+      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+      s.connect(('8.8.8.8', 80))
+      COMMON_NAME = s.getsockname()[0]
+      s.close()
+    if not os.path.isfile(KEYFILE) or not os.path.isfile(CERTSFILE) or not os.path.isfile(CA_CERTSFILE):
+      os.system(os.path.join(resources_dir(), 'PrivateCA') + '/mkca ' + COMMON_NAME + ' ' + CERTSDIR)
+      accessUser = ADMIN
+      add_accounts(accessUser, '', True)
+      path = get_certs(accessUser)
+      print '=============================================================='
+      print 'http://' + COMMON_NAME + '/download/' + path + '/' + accessUser + '.zip'
+      print '=============================================================='
+      accessUser = None
 
-    ### Set up atmega328 reset control
-    # The reset pin is connected to GPIO2_7 (2*32+7 = 71).
-    # Setting it to low triggers a reset.
-    # echo 71 > /sys/class/gpio/export
-    try:
-        fw = file("/sys/class/gpio/export", "w")
-        fw.write("%d" % (71))
-        fw.close()
-    except IOError:
-        # probably already exported
-        pass
-    # set the gpio pin to output
-    # echo out > /sys/class/gpio/gpio71/direction
-    fw = file("/sys/class/gpio/gpio71/direction", "w")
-    fw.write("out")
-    fw.close()
-    # set the gpio pin high
-    # echo 1 > /sys/class/gpio/gpio71/value
-    fw = file("/sys/class/gpio/gpio71/value", "w")
-    fw.write("1")
-    fw.flush()
-    fw.close()
-
-    ### Set up atmega328 reset control - BeagleBone Black
-    # The reset pin is connected to GPIO2_9 (2*32+9 = 73).
-    # Setting it to low triggers a reset.
-    # echo 73 > /sys/class/gpio/export
-    try:
-        fw = file("/sys/class/gpio/export", "w")
-        fw.write("%d" % (73))
-        fw.close()
-    except IOError:
-        # probably already exported
-        pass
-    # set the gpio pin to output
-    # echo out > /sys/class/gpio/gpio73/direction
-    fw = file("/sys/class/gpio/gpio73/direction", "w")
-    fw.write("out")
-    fw.close()
-    # set the gpio pin high
-    # echo 1 > /sys/class/gpio/gpio73/value
-    fw = file("/sys/class/gpio/gpio73/value", "w")
-    fw.write("1")
-    fw.flush()
-    fw.close()
-
-    ### read stepper driver configure pin GPIO2_12 (2*32+12 = 76).
-    # Low means Geckos, high means SMC11s
-    try:
-        fw = file("/sys/class/gpio/export", "w")
-        fw.write("%d" % (76))
-        fw.close()
-    except IOError:
-        # probably already exported
-        pass
-    # set the gpio pin to input
-    fw = file("/sys/class/gpio/gpio76/direction", "w")
-    fw.write("in")
-    fw.close()
-    # set the gpio pin high
-    fw = file("/sys/class/gpio/gpio76/value", "r")
-    ret = fw.read()
-    fw.close()
-    print "Stepper driver configure pin is: " + str(ret)
-
-elif args.raspberrypi:
+if args.raspberrypi:
     HARDWARE = 'raspberrypi'
+    NETWORK_PORT = 80
+    if CERTSDIR:
+      NETWORK_PORT = 443
     from RPiPowerControl import RPiPowerControl
 
 if args.network_port:
@@ -761,9 +843,6 @@ if args.network_port:
 
 if args.libsdir:
     LIBSDIR = args.libsdir
-
-if args.certsDir:
-    CERTSDIR = args.certsDir
 
 if args.logfile:
     logger = logging.getLogger()
@@ -841,6 +920,10 @@ else:
             else:
                 print "ERROR: Failed to flash Arduino."
     else:
+        if (CERTSDIR != None) and (NETWORK_PORT == 443):
+            redirect_pid = os.fork()
+            if redirect_pid == 0:
+              import redirect
         if args.host_on_all_interfaces:
             run_with_callback('', NETWORK_PORT)
         else:

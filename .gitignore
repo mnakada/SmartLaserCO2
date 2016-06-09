@@ -1,3 +1,9 @@
 *.pyc
 *.pyo
 *.DS_Store
+
+PrivateCA/*.zip
+PrivateCA/CA
+PrivateCA/Common
+PrivateCA/Client
+PrivateCA/.rnd

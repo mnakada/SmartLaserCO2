@@ -1,0 +1,35 @@
+#!/bin/sh
+
+cd `dirname $0`
+CONF=smartlaserca.conf
+CACERT=smartlaser_privateca
+PRIVATEWEBCERT=private_smartlaser
+TUNNELCLIENTCERT=tunnel_client
+if [ -f ./property.conf ] ; then
+  . ./property.conf
+fi
+
+if [ \( "$1" = "" \) -o \( "$1" = "--help" \) ] ; then
+  echo "usage : mkclient <client_name>"
+  exit 1
+fi
+
+CLIENT=$1
+PASSWD=${CLIENT%%@*}
+CPATH=Client/$CLIENT
+
+mkdir -p $CPATH
+echo "Generating Client [$CLIENT] certificate"
+REVOKE=`awk '{if(($1 ~ "V") && ($0 ~ "O=" O) && ($0 ~ "CN=" CN)) print $3;}' O="SmartLaser Client" CN="$CLIENT" CA/index.txt`
+[ -f CA/newcerts/$REVOKE.pem ] && openssl ca -config $CONF -revoke CA/newcerts/$REVOKE.pem -keyfile CA/private/$CACERT.key -cert CA/$CACERT.crt
+openssl req -config $CONF -new -newkey rsa:2048 -extensions client_cert -nodes -keyout $CPATH/$CLIENT.key -out $CPATH/$CLIENT.req -subj "/C=$CountryName/ST=$StateOrProvinceName/L=$LocalityName/O=SmartLaser Client/OU=$OrganizationUnitName/CN=$CLIENT"
+[ $? = 0 ] && openssl ca -config $CONF -out $CPATH/$CLIENT.crt -days 1095 -batch -keyfile CA/private/$CACERT.key -cert CA/$CACERT.crt -extensions client_cert -policy policy_anything -infiles $CPATH/$CLIENT.req
+[ $? = 0 ] && openssl pkcs12 -passout pass:$PASSWD -export -inkey $CPATH/$CLIENT.key -in $CPATH/$CLIENT.crt -certfile CA/$CACERT.crt -out $CPATH.p12
+[ $? = 0 ] || exit 1
+
+mkdir -p tmp
+cp CA/$CACERT.crt tmp
+cp $CPATH.p12 tmp
+(cd tmp;zip ../"$CLIENT".zip *)
+rm -rf tmp
+

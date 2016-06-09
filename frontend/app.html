@@ -19,6 +19,7 @@
     <script src="/js/app_laserjobs.js"></script>
     <script src="/js/app_mover.js"></script>
     <script src="/js/app_import.js"></script>
+    <script src="/js/app_accounts.js"></script>
   </head>
 
   <body>
@@ -64,6 +65,45 @@
       </div>
     </div>
 
+    <!-- account modal -->
+    <div id="account_modal" class="modal hide" tabindex="-1" role="dialog" aria-labelledby="account_modal_label">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">×</button>
+        <h3 id="account_modal_label">アカウント</h3>
+      </div>
+      <div class="modal-body text-center">
+        <form class="form-inline" role="form">
+          <div class="form-group">
+            <label style="width:20%">メールアドレス：</label>
+            <input type="email" class="form-control" required=true id="account_modal_name"  style="width:70%;"></p>
+          </div>
+        </form>
+        <form class="form-inline" role="form">
+          <div class="form-group">
+            <label style="width:20%;">コメント：</label>
+            <input type="text" class="form-control" required=true id="account_modal_comment" style="width:70%;">
+          </div>
+        </form>
+        <form class="form-inline" role="form">
+          <div class="form-group">
+            <label style="width:20%;">管理者：</label>
+            <input type="checkbox" id="account_modal_admin">
+          </div>
+        </form>
+        <form class="form-inline" role="form">
+          <div class="form-group">
+            <p id="account_modal_alert" style="color:red;"></label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button id="account_remove" class="btn btn-danger pull-left">削除</button>
+        <button id="account_cert" class="btn">再発行</button>
+        <button class="btn" data-dismiss="modal">キャンセル</button>
+        <button id="account_modify" class="btn btn-info">修正</button>
+        <button id="account_add" class="btn btn-info">追加</button>
+      </div>
+    </div>
 
     <div id="container" class="container">
       <div class="row">
@@ -77,6 +117,7 @@
                 <li><a href="#tab_import" id="tab_import_button" data-toggle="tab"><i class="icon-folder-open" style="margin-right:2px"></i> ファイル読込</a></li>
                 <li><a href="#tab_mover" id="tab_mover_button" data-toggle="tab"><i class="icon-move" style="margin-right:2px"></i> 移動・JOG</a></li>
                 <li><a href="#tab_logs" id="tab_logs_button" data-toggle="tab"><i class="icon-exclamation-sign" style="margin-right:2px"></i> ログ</a></li>
+                <li><a href="#tab_accounts" id="tab_accounts_button" data-toggle="tab" style="display:none"><i class="icon-user" style="margin-right:2px"></i> アカウント</a></li>
               </ul>
             </div>
             <!--tabbar end-->
@@ -266,7 +307,7 @@
                   </div>
                 </div> <!-- end of mover tab -->
 
-                <div id="tab_logs" class="tab-pane active">
+                <div id="tab_logs" class="tab-pane">
                   <div class="alert" style="margin:5px; display:none">
                     <a class="close" data-dismiss="alert">×</a>
                     ログ, 最新メッセージ:
@@ -276,6 +317,21 @@
                   </div>
                 </div> <!-- end of log tab -->
 
+                <div id="tab_accounts" class="tab-pane">
+                  <div style="width:650px;">
+                    <div class="well clearfix" style="margin-bottom:40px">
+                    <button id="account_modal_add" class="btn btn-mini pull-right">
+                      ＋
+                    </button>
+                    <h3>アカウントリスト</h3>
+                    <div>
+                      <ul id="accounts_list" class="nav nav-tabs nav-stacked">
+                        <!-- accounts list -->
+                      </ul>
+                    </div>
+                  </div>
+                  </div>
+                </div>
                 <!--content end-->
               </div>
             </div>

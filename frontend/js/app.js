@@ -155,7 +155,10 @@ function generate_download(filename, filedata) {
     url: "/stash_download",
     data: {'filedata': filedata},
     success: function (data) {
-      window.open("/download/" + data + "/" + filename, '_blank');
+      var element = document.createElement("a");
+      element.download = filename;
+      element.href = location.origin + "/download/" + data + "/" + filename;
+      element.click();
     },
     error: function (data) {
       $().uxmessage('error', "タイムアウト. SmartLaserサーバーがダウンしたかもしてません。");
@@ -166,6 +169,11 @@ function generate_download(filename, filedata) {
   });
 }
 
+function evaluate_data(d) {
+  if((d == 'true') || (d == 'True') || (d == '1'))  return true;
+  if((d == 'false') || (d == 'False') || (d == '0'))  return false;
+  return d;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -411,10 +419,12 @@ $(document).ready(function(){
     }
   };
 
-  function evaluate_data(d) {
-    if((d == 'true') || (d == 'True') || (d == '1'))  return true;
-    if((d == 'false') || (d == 'False') || (d == '0'))  return false;
-    return d;
+  function apply_tabs() {
+    if(hardware_status['admin']) {
+      $('#tab_accounts_button').show();
+    } else {
+      $('#tab_accounts_button').hide();
+    }
   }
 
   function poll_hardware_status() {
@@ -424,6 +434,7 @@ $(document).ready(function(){
         hardware_status[i] = evaluate_data(data[i]);
       }
       apply_status();
+      apply_tabs();
       apply_location_field();
       error_and_version_check();
       setTimeout(function() {poll_hardware_status()}, 500);
@@ -557,7 +568,7 @@ $(document).ready(function(){
     if (cancel_modal_active === true) {
       $('#cancel_modal').modal('hide');
       cancel_modal_active = false;
-    } else {
+    } else if(hardware_status.power && hardware_status.serial_connected && !hardware_status.ready){
       $('#cancel_modal').modal('show');
       $('#really_cancel_btn').focus();
       cancel_modal_active = true;

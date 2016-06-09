@@ -277,6 +277,7 @@ class SerialManagerClass:
                             actuallySent = 0  # assume nothing has been sent
                             sys.stdout.write("\nsend_queue_as_ready: writeTimeoutError\n")
                             sys.stdout.flush()
+                            self.close()
                         self.tx_index += actuallySent
                         self.nRequested -= actuallySent
                         if self.nRequested <= 0:
@@ -292,6 +293,7 @@ class SerialManagerClass:
                             actuallySent = 0  # assume nothing has been sent
                             sys.stdout.write("\nsend_queue_as_ready: writeTimeoutError\n")
                             sys.stdout.flush()
+                            self.close()
                         self.tx_index += actuallySent
                     else:
                         if (time.time()-self.last_request_ready) > 2.0:
@@ -310,6 +312,7 @@ class SerialManagerClass:
                                 actuallySent = self.nRequested  # pyserial does not report this sufficiently
                                 sys.stdout.write("\nsend_queue_as_ready: writeTimeoutError, on ready request\n")
                                 sys.stdout.flush()
+                                self.close()
                             if actuallySent == 1:
                                 self.last_request_ready = time.time()
                          
@@ -327,7 +330,10 @@ class SerialManagerClass:
                 self.close()
             except ValueError:
                 # Serial port appears closed => reset
-                self.close()     
+                self.close()
+            except serial.SerialException:
+                # Serial port appears closed => reset
+                self.close()
         else:
             # serial disconnected    
             self.status['ready'] = False  

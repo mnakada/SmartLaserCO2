@@ -338,15 +338,15 @@ function send_log_message() {
   var passes = DataHandler.getPasses();
   for (var i in passes) {
     var pass = passes[i];
-    msg['feedrate'] = 'F'+pass['feedrate'];
-    msg['intensity'] = pass['intensity']+'%';
-    msg['counts'] = pass['counts']+'times';
+    msg['feedrate'] = pass['feedrate'];
+    msg['intensity'] = pass['intensity'];
+    msg['counts'] = pass['counts'];
     var length = 0;
     for(var c in pass.colors) {
       var color = pass.colors[c];
       length += DataHandler.getJobPathLengthByColor(color);
     }
-    msg['length'] = (length/1000).toFixed(1)+'m';
+    msg['length'] = length;
     $.post("/logging", msg);
   }
 }
@@ -395,6 +395,12 @@ $(document).ready(function(){
       DataHandler.setByJson($('#job_data').val());
       if (readPassesWidget()) {
         var job_bbox = DataHandler.getJobBbox();
+        if(gcode_coordinate_offset) {
+          job_bbox[0] += gcode_coordinate_offset[0];
+          job_bbox[1] += gcode_coordinate_offset[1];
+          job_bbox[2] += gcode_coordinate_offset[0];
+          job_bbox[3] += gcode_coordinate_offset[1];
+        }
         if (job_bbox[0] >= 0 &&
             job_bbox[1] >= 0 &&
             job_bbox[2] <= app_settings.work_area_dimensions[0] &&
@@ -424,6 +430,12 @@ $(document).ready(function(){
       DataHandler.setByJson($('#job_data').val());
       if (readPassesWidget()) {
         var job_bbox = DataHandler.getJobBbox();
+        if(gcode_coordinate_offset) {
+          job_bbox[0] += gcode_coordinate_offset[0];
+          job_bbox[1] += gcode_coordinate_offset[1];
+          job_bbox[2] += gcode_coordinate_offset[0];
+          job_bbox[3] += gcode_coordinate_offset[1];
+        }
         if (job_bbox[0] >= 0 &&
             job_bbox[1] >= 0 &&
             job_bbox[2] <= app_settings.work_area_dimensions[0] &&

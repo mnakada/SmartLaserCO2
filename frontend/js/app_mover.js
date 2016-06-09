@@ -7,7 +7,9 @@ function reset_offset() {
   gcode_coordinate_offset = undefined;
   $("#cutting_area").css('border', '1px dashed #ff0000');
   $("#offset_area").css('border', '1px dashed #aaaaaa');
-  send_gcode('G54\n', "Offset reset.", false);
+  var gcode = 'G54\n';
+  gcode += 'G90\nG0X0Y0F'+app_settings.max_seek_speed+'\n'
+  send_gcode(gcode, "原点を初期化", false);
   $('#coordinates_info').text('');
 }
 
@@ -102,12 +104,6 @@ $(document).ready(function(){
     return coords_text;
   }
 
-  function assemble_offset_text(x,y) {
-    var x_phy = x*app_settings.to_physical_scale;
-    var y_phy = y*app_settings.to_physical_scale;
-    return '原点を移動(' + x_phy.toFixed(0) + ', '+ y_phy.toFixed(0) + ')'
-  }
-
   function assemble_and_set_offset(x, y) {
     if (x == 0 && y == 0) {
       reset_offset()
@@ -125,6 +121,7 @@ $(document).ready(function(){
       var y_phy = y*app_settings.to_physical_scale + app_settings.table_offset[1];
       var gcode = 'G10 L2 P1 X'+ x_phy.toFixed(app_settings.num_digits) + 
                   ' Y' + y_phy.toFixed(app_settings.num_digits) + '\nG55\n';
+      gcode += 'G90\nG0X0Y0F'+app_settings.max_seek_speed+'\n'
       send_gcode(gcode, "原点を移動", false);
       $(this).css('border', '1px dashed #aaaaaa');
       $("#offset_area").css('border', '1px dashed #ff0000');
@@ -181,18 +178,16 @@ $(document).ready(function(){
     var offset = $(this).offset();
     var x = (e.pageX - offset.left);
     var y = (e.pageY - offset.top);
-    if (!gcode_coordinate_offset) {
-      if(!e.shiftKey) {
+    if(e.shiftKey) {
+      var x_phy = x*app_settings.to_physical_scale;
+      var y_phy = y*app_settings.to_physical_scale;
+      coords_text = '原点を移動(' + x_phy.toFixed(0) + ', '+ y_phy.toFixed(0) + ')';
+    } else {
+      if (!gcode_coordinate_offset) {
         coords_text = assemble_info_text(x,y);
         if (e.altKey &&isDragging) {
             assemble_and_send_gcode(x,y);
         }
-      } else {
-        coords_text = assemble_offset_text(x,y);
-      }
-    } else {
-      if(e.shiftKey) {
-        coords_text = '原点を移動(' + x + ', '+ y + ')'
       } else {
         var pos = $("#offset_area").position()
         if ((x < pos.left) || (y < pos.top)) {           

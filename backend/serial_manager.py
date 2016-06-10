@@ -79,7 +79,7 @@ class SerialManagerClass:
             available = []
             for i in range(24):
                 try:
-                    s = serial.Serial(port=i, baudrate=baudrate)
+                    s = serial.Serial(port='COM' + str(i), baudrate=baudrate)
                     ports.append(s.portstr)                
                     available.append( (i, s.portstr))
                     s.close()
@@ -105,7 +105,7 @@ class SerialManagerClass:
             print "Trying to find Controller ..."
             for i in range(24):
                 try:
-                    s = serial.Serial(port=i, baudrate=baudrate, timeout=2.0)
+                    s = serial.Serial(port='COM' + str(i), baudrate=baudrate, timeout=2.0)
                     lasaur_hello = s.read(32)
                     if lasaur_hello.find(self.LASAURGRBL_FIRST_STRING) > -1:
                         return s.portstr

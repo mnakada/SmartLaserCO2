@@ -24,7 +24,7 @@ function show_accounts(data) {
     html += '<div><span class="accounts1">' + user + '</span>';
     html += '<span class="accounts2">' + accountsTable[user]['comment'] + '</span></div>';
     html += '<div><span class="accounts3">' + '使用時間: ' + Math.round(statistics['useTime']/60).toFixed() + '分　';
-    html += 'レーザー実使用時間: ' + Math.round(statistics['laserTime']/60).toFixed() + '分　';
+    html += 'レーザー時間: ' + Math.round(statistics['laserTime']/60).toFixed() + '分　';
     html += '切断長: ' + Math.round(statistics['length']/1000).toFixed() + 'm　';
     html += '最終アクセス: ' + lastAccessStr;
     html += '</div></span></a></li>';

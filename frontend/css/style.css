@@ -33,18 +33,17 @@ div.log_error {
 
 span.accounts1 {
   display: inline-block;
-  width: 35%;
+  width: 40%;
 }
 
 span.accounts2 {
   display: inline-block;
-  width: 65%;
+  width: 60%;
 }
 
 span.accounts3 {
   display: inline-block;
-  margin-left:5%;
-  width: 95%;
+  width: 100%;
 }
 
 button.active-strong {

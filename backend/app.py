@@ -230,6 +230,7 @@ def run_with_callback(host, port):
     powerStateChange = 0
     while 1:
         try:
+            serial_handler('1')
             SerialManager.send_queue_as_ready()
             server.handle_request()
             if HARDWARE == 'raspberrypi':

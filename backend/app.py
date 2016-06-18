@@ -2,6 +2,7 @@
 import sys, os, time, signal
 import glob, json, argparse, copy
 import tempfile
+import serial
 import socket, webbrowser
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 from bottle import *

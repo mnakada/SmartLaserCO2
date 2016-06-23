@@ -437,6 +437,9 @@ $(document).ready(function(){
       apply_tabs();
       apply_location_field();
       error_and_version_check();
+      if(('accounts' in data) && ('statistics' in data)) {
+        show_accounts(data);
+      }
       setTimeout(function() {poll_hardware_status()}, 500);
     }).error(function() {
       setTimeout(function() {poll_hardware_status()}, 5000);

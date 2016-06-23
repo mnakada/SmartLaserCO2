@@ -41,7 +41,27 @@ function refresh_preview(reload_data, read_passes_widget) {
   //               "m. Estimated Time: " + duration.toFixed(1) + "min");
   var total_length = DataHandler.getJobPathLength();
   if (total_length > 0) {
-    $('#stats_after_name').html('length: '+(total_length/1000).toFixed(1)+'m');
+    
+    var passes = DataHandler.getPasses();
+    var useTime = 0;
+    for (var i in passes) {
+      var pass = passes[i];
+      var length = 0;
+      for(var c in pass.colors) {
+        var color = pass.colors[c];
+        length += DataHandler.getJobPathLengthByColor(color);
+      }
+      if(pass['feedrate'] > 0) {
+        useTime += length * pass['counts'] * 60 / pass['feedrate'];
+      }
+    }
+  
+    time = '';
+    if(useTime > 3600) time = parseInt(useTime / 3600) + '時間';
+    if(useTime > 60) time += parseInt((useTime / 60) % 60) + '分';
+    time += parseInt((useTime % 60)) + '秒';
+    $('#stats_after_name').html('加工長さ: '+(total_length/1000).toFixed(1)+'m<p>' +
+      '加工時間: ' + time);
   } else {
     $('#stats_after_name').html('');
   }

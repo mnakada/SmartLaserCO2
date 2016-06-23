@@ -36,7 +36,7 @@ logger = None
 COMMON_NAME = None
 ADMIN = None
 redirect_pid = 0
-
+lastSerialError = 0
 
 if os.name == 'nt': #sys.platform == 'win32':
     GUESS_PREFIX = "Arduino"
@@ -451,7 +451,11 @@ def serial_handler(connect):
     if connect == '1':
         # print 'js is asking to connect serial'
         if not SerialManager.is_connected():
+            global lastSerialError
             try:
+                now = time.time()
+                if (now - lastSerialError) < 1.0:
+                  return ""
                 global SERIAL_PORT, BITSPERSECOND, GUESS_PREFIX
                 if not SERIAL_PORT:
                     SERIAL_PORT = SerialManager.match_device(GUESS_PREFIX, BITSPERSECOND)
@@ -462,6 +466,7 @@ def serial_handler(connect):
                 SerialManager.flush_output()
                 return ret
             except serial.SerialException:
+                lastSerialError = time.time()
                 SERIAL_PORT = None
                 print "Failed to connect to serial."
                 return ""
@@ -517,6 +522,8 @@ def get_status():
     status['lasaurapp_version'] = VERSION
     status['admin'] = admin_check()
     status['user'] = accessUser
+    status['accounts'] = accountsTable
+    status['statistics'] = statistics
     return status
 
 @route('/accounts/get')

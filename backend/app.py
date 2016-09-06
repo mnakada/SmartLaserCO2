@@ -175,10 +175,11 @@ def receive_signal(signum, stack):
   print 'Received:', signum
   raise KeyboardInterrupt('receive signal')
 
-signal.signal(signal.SIGHUP, receive_signal)
-signal.signal(signal.SIGINT, receive_signal)
-signal.signal(signal.SIGQUIT, receive_signal)
-signal.signal(signal.SIGTERM, receive_signal)
+if os.name == 'posix':
+  signal.signal(signal.SIGHUP, receive_signal)
+  signal.signal(signal.SIGINT, receive_signal)
+  signal.signal(signal.SIGQUIT, receive_signal)
+  signal.signal(signal.SIGTERM, receive_signal)
 
 def run_with_callback(host, port):
     """ Start a wsgiref server instance with control over the main loop.
